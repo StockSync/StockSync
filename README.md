@@ -29,4 +29,4 @@ Micro e pequenos empreendedores enfrentam desafios significativos na gestão de 
 
 ### 1.2. 💡 Proposta de Valor
 
-Nossa solução é uma aplicação web, que irá sempre 
+Nossa solução é uma aplicação web, que traz uma forma simplificada de gestão de estoque, além de uma interface gráfica minimalista e agradável ao usuário, nela o usuário pode criar novos estoques, editar ou deletar estoques existentes, ver os detalhes de cada um, trazendo uma indivualidade de cada estoque, onde cada um tem sua lista de produtos próprios, além de poder cadastrar e manipular os produtos cadastrados de forma lógica.
