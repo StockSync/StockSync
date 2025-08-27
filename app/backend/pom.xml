@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.stocksync</groupId>
-	<artifactId>backend</artifactId>
+	<artifactId>stocksync</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>backend</name>
 	<description>Sistma de genrenciamento de estoque </description>
