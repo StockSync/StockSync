@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarFallback } from "@radix-ui/react-avatar";
+import { usePathname } from "next/navigation";
 
 // Menu items.
 const items = [
@@ -44,6 +45,8 @@ const items = [
 ];
 
 export default function AppSidebar() {
+  const pathname = usePathname();
+
   return (
     <Sidebar>
       <SidebarHeader className="flex justify-center items-center py-0 border-b">
@@ -56,7 +59,11 @@ export default function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild size="lg">
+                  <SidebarMenuButton
+                    asChild
+                    size="lg"
+                    isActive={pathname === item.url}
+                  >
                     <a href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
