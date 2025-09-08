@@ -1,5 +1,7 @@
 # 📦 Stock Sync: Inventory & Product Management System
 
+![Logo do Projeto](app/frontend/images/logo_stocksync.jpeg)
+
 > Nosso sistema é uma aplicação web, focada exclusivamente no gerenciamento de estoque, projetada para ser radicalmente simples, intuitiva e acessível para micro e pequenos empreendedores.
 
 ---
