@@ -4,7 +4,7 @@ import com.stocksync.backend.model.enuns.ProductStatus;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "")
+@Table(name = "estoque_produto")
 public class StockProduct {
 
     @EmbeddedId
