@@ -32,11 +32,8 @@ public class User {
     @Column(name = "data_criacao", nullable = false)
     private LocalDate creationDate;
 
-
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL,orphanRemoval = true)
     private List<Stock> stocks = new ArrayList<>();
-
-
 
     public User(String name, String email, String password, LocalDate creationDate) {
         this.name = name;
