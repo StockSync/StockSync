@@ -47,7 +47,7 @@ public class StockService {
         // Não é mais necessário buscar o usuário, ele já vem do contexto de segurança
         Stock stock = new Stock();
         stock.setName(stockRequestDTO.name());
-        stock.setDescription(stockRequestDTO.description());
+        stock.setLocation(stockRequestDTO.location());
         stock.setCreationDate(LocalDate.now());
         stock.setUser(user);
 
@@ -55,14 +55,14 @@ public class StockService {
         return convertToDTO(savedStock);
     }
 
-    // Atualizar um estoque - ATUALIZADO
+    // Atualizar um estoque
     @Transactional
     public StockDTO updateStock(Long stockId, StockRequestDTO stockRequestDTO) {
         Stock stock = stockRepository.findById(stockId)
                 .orElseThrow(() -> new RuntimeException("Estoque não encontrado com o ID: " + stockId));
 
         stock.setName(stockRequestDTO.name());
-        stock.setDescription(stockRequestDTO.description());
+        stock.setLocation(stockRequestDTO.location());
 
         Stock updatedStock = stockRepository.save(stock);
         return convertToDTO(updatedStock);
@@ -81,7 +81,7 @@ public class StockService {
         return new StockDTO(
                 stock.getId(),
                 stock.getName(),
-                stock.getDescription(),
+                stock.getLocation(),
                 stock.getUser().getId()
         );
     }

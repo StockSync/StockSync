@@ -44,6 +44,10 @@ public class UserService {
         user.setName(userUpdateDTO.name());
         user.setEmail(userUpdateDTO.email());
 
+        if (userUpdateDTO.imageUrl() != null) {
+            user.setImageUrl(userUpdateDTO.imageUrl());
+        }
+
         User updatedUser = userRepository.save(user);
         return userMapper.toDTO(updatedUser);
     }

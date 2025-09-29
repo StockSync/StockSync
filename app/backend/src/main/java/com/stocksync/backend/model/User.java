@@ -32,6 +32,9 @@ public class User {
     @Column(name = "data_criacao", nullable = false)
     private LocalDate creationDate;
 
+    @Column(name = "imagem_url", nullable = true)
+    private String imageUrl;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL,orphanRemoval = true)
     private List<Stock> stocks = new ArrayList<>();
 

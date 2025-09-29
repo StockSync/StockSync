@@ -1,11 +1,11 @@
 package com.stocksync.backend.model;
 
+import com.stocksync.backend.model.enuns.CatalogProductStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -23,9 +23,6 @@ public class Product {
     @Column(name = "nome", nullable = false)
     private String name;
 
-    @Column(name = "produto_ativo", nullable = false)
-    private Boolean productActive;
-
     @Column(name = "descricao", nullable = true, columnDefinition = "TEXT")
     private String description;
 
@@ -33,7 +30,11 @@ public class Product {
     private String sku;
 
     @Column(name = "imagem_url", nullable = true)
-    private LocalDate imageUrl;
+    private String imageUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private CatalogProductStatus status;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<StockProduct> stocks = new HashSet<>();

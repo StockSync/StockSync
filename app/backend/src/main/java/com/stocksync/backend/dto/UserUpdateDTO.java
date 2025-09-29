@@ -7,6 +7,8 @@ public record UserUpdateDTO(
         String name,
 
         @NotBlank(message = "O email não pode estar em branco")
-        String email
+        String email,
+
+        String imageUrl
 ) {
 }

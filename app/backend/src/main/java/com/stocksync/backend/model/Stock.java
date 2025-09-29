@@ -23,14 +23,14 @@ public class Stock {
     @Column(name = "nome", nullable = false)
     private String name;
 
-    @Column(name = "descricao", nullable = true)
-    private String description;
+    @Column(name = "Localizacao", nullable = true)
+    private String location;
 
     @Column(name = "data_criacao", nullable = false)
     private LocalDate creationDate;
 
     @Column(name = "imagem_url", nullable = true)
-    private LocalDate imageUrl;
+    private String imageUrl;
 
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
