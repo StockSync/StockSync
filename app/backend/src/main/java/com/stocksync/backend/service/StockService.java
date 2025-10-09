@@ -2,26 +2,31 @@ package com.stocksync.backend.service;
 
 import com.stocksync.backend.dto.StockDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
-import com.stocksync.backend.model.Stock;
-import com.stocksync.backend.model.User;
+import com.stocksync.backend.exception.ResourceNotFoundException;
+import com.stocksync.backend.model.*;
+import com.stocksync.backend.model.enuns.ProductStatus;
+import com.stocksync.backend.repository.ProductRepository;
 import com.stocksync.backend.repository.StockRepository;
 import com.stocksync.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class StockService {
 
+    private final ProductRepository productRepository;
     private final StockRepository stockRepository;
-    private final UserRepository userRepository;
 
-    public StockService(StockRepository stockRepository, UserRepository userRepository) {
+
+    public StockService(ProductRepository productRepository, StockRepository stockRepository) {
+        this.productRepository = productRepository;
         this.stockRepository = stockRepository;
-        this.userRepository = userRepository;
     }
 
     // Listar todos os estoques de um usuário (RF2.2)
@@ -44,13 +49,31 @@ public class StockService {
     // Criar um novo estoque (RF2.1)
     @Transactional
     public StockDTO createStock(StockRequestDTO stockRequestDTO, User user) {
-        // Não é mais necessário buscar o usuário, ele já vem do contexto de segurança
         Stock stock = new Stock();
         stock.setName(stockRequestDTO.name());
         stock.setLocation(stockRequestDTO.location());
         stock.setCreationDate(LocalDate.now());
         stock.setUser(user);
 
+        Set<StockProduct> stockProducts = new HashSet<>();
+        if (stockRequestDTO.products() != null && !stockRequestDTO.products().isEmpty()) {
+            for (var productDTO : stockRequestDTO.products()) {
+                Product product = productRepository.findById(productDTO.productId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado com o ID: " + productDTO.productId()));
+
+                StockProduct stockProduct = new StockProduct(
+                        new StockProductId(stock.getId(), product.getId()),
+                        product,
+                        stock,
+                        productDTO.quantity(),
+                        productDTO.minimumQuantity(),
+                        ProductStatus.IN_STOCK // ou um status padrão
+                );
+                stockProducts.add(stockProduct);
+            }
+        }
+
+        stock.setProducts(stockProducts);
         Stock savedStock = stockRepository.save(stock);
         return convertToDTO(savedStock);
     }

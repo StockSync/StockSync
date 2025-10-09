@@ -2,9 +2,13 @@ package com.stocksync.backend.model;
 
 import com.stocksync.backend.model.enuns.ProductStatus;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "estoque_produto")
+@Getter
+@Setter
 public class StockProduct {
 
     @EmbeddedId

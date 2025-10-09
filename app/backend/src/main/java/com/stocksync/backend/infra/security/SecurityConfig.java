@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         // Libera as rotas do Swagger UI e da documentação da API
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/dashboard").authenticated()
                         // Exige autenticação para qualquer outra requisição
                         .anyRequest().authenticated()
                 )

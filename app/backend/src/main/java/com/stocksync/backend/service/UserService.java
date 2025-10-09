@@ -16,16 +16,7 @@ public class UserService {
     private UserRepository userRepository;
 
     @Autowired
-    private UserMapper userMapper; // Injete o mapper
-
-    // O método createUser pode ser mantido ou removido,
-    // já que a lógica principal está no AuthController
-    @Transactional
-    public User createUser(User user){
-        return userRepository.save(user);
-    }
-
-    // --- NOVOS MÉTODOS DO CRUD ---
+    private UserMapper userMapper;
 
     // Buscar usuário pelo ID
     @Transactional(readOnly = true)

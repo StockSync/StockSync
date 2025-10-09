@@ -31,7 +31,6 @@ public class ProductService {
     public List<ProductDTO> getAllProducts(String searchTerm) {
         List<Product> products;
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            // RF3.2.2: Busca global
             products = productRepository.findByNameContainingIgnoreCaseOrSkuContainingIgnoreCase(searchTerm, searchTerm);
         } else {
             products = productRepository.findAll();
@@ -63,7 +62,6 @@ public class ProductService {
         product.setSku(productRequestDTO.sku());
         product.setImageUrl(productRequestDTO.imageUrl());
         product.setStatus(productRequestDTO.status());
-        // Não associamos mais a um usuário
 
         Product savedProduct = productRepository.save(product);
         return productMapper.toDTO(savedProduct);
