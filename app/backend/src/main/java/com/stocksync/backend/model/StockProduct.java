@@ -2,11 +2,15 @@ package com.stocksync.backend.model;
 
 import com.stocksync.backend.model.enuns.ProductStatus;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @Table(name = "estoque_produto")
+@AllArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
 public class StockProduct {
@@ -34,12 +38,4 @@ public class StockProduct {
     @Column(name = "status_produto", nullable = false)
     private ProductStatus productStatus;
 
-    public StockProduct(StockProductId id, Product product, Stock stock, Long quantity, Long minimumQuantity, ProductStatus productStatus) {
-        this.id = id;
-        this.product = product;
-        this.stock = stock;
-        this.quantity = quantity;
-        this.minimumQuantity = minimumQuantity;
-        this.productStatus = productStatus;
-    }
 }
