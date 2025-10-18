@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
 import { Plus, Upload } from "lucide-react";
 
 // Tipagem para os dados do produto
