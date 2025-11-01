@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Package2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -14,72 +15,174 @@ import {
 import AddProdutoButton from "./components/add-produto-button";
 import ProdutosTable from "./components/produtos-table";
 import UpsertProdutoForm from "./components/upsert-produto-form";
-
-// Tipagem para os dados do produto
-interface ProdutoData {
-  id: string;
-  nome: string;
-  quantidade: number;
-  estoque: string;
-  imagem?: string;
-  observacao?: string;
-}
+import { api, ProdutoData } from "@/lib/api"; // 👈 IMPORTAÇÃO NOVA
 
 const ProdutosPage = () => {
-  // Estado para armazenar todos os produtos
+  // Estados
   const [produtos, setProdutos] = useState<ProdutoData[]>([]);
-
-  // Estados para controlar a edição
+  const [loading, setLoading] = useState(true); // 👈 NOVO
+  const [error, setError] = useState<string | null>(null); // 👈 NOVO
   const [produtoEditando, setProdutoEditando] = useState<ProdutoData | null>(
     null
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Função para adicionar novo produto
-  const handleAddProduto = (novoProduto: ProdutoData) => {
-    setProdutos((prev) => [...prev, novoProduto]);
+  // 🔥 CARREGAR PRODUTOS DA API
+  useEffect(() => {
+    carregarProdutos();
+  }, []);
+
+  const carregarProdutos = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.getProdutos();
+      setProdutos(data);
+      console.log("✅ Produtos carregados:", data);
+    } catch (err) {
+      console.error("❌ Erro ao carregar produtos:", err);
+      setError(
+        err instanceof Error ? err.message : "Erro ao carregar produtos"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Função para atualizar quantidade do produto
-  const handleUpdateQuantidade = (id: string, novaQuantidade: number) => {
-    setProdutos((prev) =>
-      prev.map((produto) =>
-        produto.id === id ? { ...produto, quantidade: novaQuantidade } : produto
-      )
-    );
+  // 🔥 ADICIONAR PRODUTO (MUDOU)
+  const handleAddProduto = async (novoProduto: Omit<ProdutoData, "id">) => {
+    try {
+      const produtoCriado = await api.createProduto(novoProduto);
+      setProdutos((prev) => [...prev, produtoCriado]);
+      console.log("✅ Produto criado:", produtoCriado);
+    } catch (err) {
+      console.error("❌ Erro ao criar produto:", err);
+      alert(
+        "Erro ao criar produto: " +
+          (err instanceof Error ? err.message : "Erro desconhecido")
+      );
+    }
   };
 
-  // Função para editar produto existente
+  // 🔥 ATUALIZAR QUANTIDADE (MUDOU)
+  const handleUpdateQuantidade = async (id: string, novaQuantidade: number) => {
+    try {
+      const produtoAtualizado = await api.updateProdutoQuantidade(
+        id,
+        novaQuantidade
+      );
+      setProdutos((prev) =>
+        prev.map((produto) => (produto.id === id ? produtoAtualizado : produto))
+      );
+      console.log("✅ Quantidade atualizada:", produtoAtualizado);
+    } catch (err) {
+      console.error("❌ Erro ao atualizar quantidade:", err);
+      alert("Erro ao atualizar quantidade");
+    }
+  };
+
+  // EDITAR PRODUTO (NÃO MUDOU)
   const handleEditProduto = (produto: ProdutoData) => {
     console.log("Produto selecionado para edição:", produto);
     setProdutoEditando({ ...produto });
     setIsEditModalOpen(true);
   };
 
-  // Função para salvar as edições
-  const handleSaveEditProduto = (produtoEditado: ProdutoData) => {
-    setProdutos((prev) =>
-      prev.map((produto) =>
-        produto.id === produtoEditado.id ? produtoEditado : produto
-      )
-    );
-    setIsEditModalOpen(false);
-    setProdutoEditando(null);
+  // 🔥 SALVAR EDIÇÕES (MUDOU)
+  const handleSaveEditProduto = async (produtoEditado: ProdutoData) => {
+    try {
+      const produtoAtualizado = await api.updateProduto(
+        produtoEditado.id,
+        produtoEditado
+      );
+      setProdutos((prev) =>
+        prev.map((produto) =>
+          produto.id === produtoEditado.id ? produtoAtualizado : produto
+        )
+      );
+      setIsEditModalOpen(false);
+      setProdutoEditando(null);
+      console.log("✅ Produto atualizado:", produtoAtualizado);
+    } catch (err) {
+      console.error("❌ Erro ao atualizar produto:", err);
+      alert("Erro ao atualizar produto");
+    }
   };
 
-  // Função para deletar produto
-  const handleDeleteProduto = (id: string) => {
-    setProdutos((prev) => prev.filter((produto) => produto.id !== id));
-    setIsEditModalOpen(false);
-    setProdutoEditando(null);
+  // 🔥 DELETAR PRODUTO (MUDOU)
+  const handleDeleteProduto = async (id: string) => {
+    try {
+      await api.deleteProduto(id);
+      setProdutos((prev) => prev.filter((produto) => produto.id !== id));
+      setIsEditModalOpen(false);
+      setProdutoEditando(null);
+      console.log("✅ Produto deletado");
+    } catch (err) {
+      console.error("❌ Erro ao deletar produto:", err);
+      alert("Erro ao deletar produto");
+    }
   };
 
-  // Função para fechar o modal de edição
   const handleCloseEdit = () => {
     setIsEditModalOpen(false);
     setProdutoEditando(null);
   };
 
+  // 🔄 LOADING
+  if (loading) {
+    return (
+      <PageContainer>
+        <PageHeader>
+          <PageHeaderContent>
+            <PageTitle>Produtos</PageTitle>
+            <PageDescription>Carregando produtos...</PageDescription>
+          </PageHeaderContent>
+        </PageHeader>
+        <PageContent>
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Carregando...</p>
+          </div>
+        </PageContent>
+      </PageContainer>
+    );
+  }
+
+  // ❌ ERRO
+  if (error) {
+    return (
+      <PageContainer>
+        <PageHeader>
+          <PageHeaderContent>
+            <PageTitle>Produtos</PageTitle>
+            <PageDescription>Erro ao carregar produtos</PageDescription>
+          </PageHeaderContent>
+          <PageActions>
+            <AddProdutoButton onAddProduto={handleAddProduto} />
+          </PageActions>
+        </PageHeader>
+        <PageContent>
+          <div className="text-center py-12">
+            <div className="text-red-600 mb-4">
+              <Package2 className="h-16 w-16 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Erro ao carregar produtos
+              </h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button
+              onClick={carregarProdutos}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </PageContent>
+      </PageContainer>
+    );
+  }
+
+  // ✅ RENDERIZAÇÃO NORMAL
   return (
     <PageContainer>
       <PageHeader>
@@ -117,7 +220,6 @@ const ProdutosPage = () => {
         )}
       </PageContent>
 
-      {/* Modal de Edição */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <UpsertProdutoForm
           onSave={handleSaveEditProduto}
