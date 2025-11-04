@@ -18,10 +18,10 @@ import { api, EstoqueData } from "@/lib/api"; // 👈 IMPORTAÇÃO NOVA
 const EstoquePage = () => {
   // Estados
   const [estoques, setEstoques] = useState<EstoqueData[]>([]);
-  const [loading, setLoading] = useState(true); // 👈 NOVO
-  const [error, setError] = useState<string | null>(null); // 👈 NOVO
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 🔥 CARREGAR ESTOQUES DA API
+  // CARREGAR ESTOQUES DA API
   useEffect(() => {
     carregarEstoques();
   }, []);
@@ -43,7 +43,7 @@ const EstoquePage = () => {
     }
   };
 
-  // 🔥 ADICIONAR ESTOQUE (MUDOU)
+  //ADICIONAR ESTOQUE
   const handleAddEstoque = async (novoEstoque: Omit<EstoqueData, "id">) => {
     try {
       const estoqueCriado = await api.createEstoque(novoEstoque);
@@ -58,7 +58,7 @@ const EstoquePage = () => {
     }
   };
 
-  // 🔥 EDITAR ESTOQUE (MUDOU)
+  //EDITAR ESTOQUE
   const handleEditEstoque = async (estoqueEditado: EstoqueData) => {
     try {
       const estoqueAtualizado = await api.updateEstoque(
@@ -77,7 +77,7 @@ const EstoquePage = () => {
     }
   };
 
-  // 🔥 DELETAR ESTOQUE (MUDOU)
+  //DELETAR ESTOQUE
   const handleDeleteEstoque = async (id: string) => {
     try {
       await api.deleteEstoque(id);
@@ -89,7 +89,7 @@ const EstoquePage = () => {
     }
   };
 
-  // 🔄 LOADING
+  // LOADING
   if (loading) {
     return (
       <PageContainer>
@@ -109,7 +109,7 @@ const EstoquePage = () => {
     );
   }
 
-  // ❌ ERRO
+  //ERRO
   if (error) {
     return (
       <PageContainer>
@@ -143,7 +143,7 @@ const EstoquePage = () => {
     );
   }
 
-  // ✅ RENDERIZAÇÃO NORMAL
+  //RENDERIZAÇÃO
   return (
     <PageContainer>
       <PageHeader>

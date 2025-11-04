@@ -1,5 +1,8 @@
 "use client";
 
+import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -41,6 +44,7 @@ const AuthenticationPage = () => {
     password: "",
   });
   const [loginErrors, setLoginErrors] = useState<Errors>({});
+  const router = useRouter();
 
   const [registerData, setRegisterData] = useState<RegisterData>({
     name: "",
@@ -93,33 +97,33 @@ const AuthenticationPage = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const fakeApiCall = (
-    data: LoginData | RegisterData,
-    type: "login" | "register"
-  ): Promise<LoginData | RegisterData> => {
-    setLoading(true);
-    setMessage(null);
-
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        setLoading(false);
-        setMessage(
-          type === "login"
-            ? "✅ Login realizado com sucesso!"
-            : "🎉 Conta criada com sucesso!"
-        );
-        resolve(data);
-      }, 1500);
-    });
-  };
-
   const handleLoginSubmit = async (
     e: React.MouseEvent<HTMLButtonElement>
   ): Promise<void> => {
     e.preventDefault();
     if (validateLogin()) {
-      await fakeApiCall(loginData, "login");
-      console.log("Login:", loginData);
+      setLoading(true);
+      setMessage(null);
+      try {
+        // Chama a api.login com os dados do estado
+        const response = await api.login(loginData.email, loginData.password);
+        console.log("Login bem-sucedido:", response);
+        setMessage("✅ Login realizado com sucesso!");
+
+        // Redireciona para o dashboard
+        router.push("/dashboard");
+      } catch (error) {
+        console.error("Erro no login:", error);
+
+        // Adicione esta verificação de tipo
+        let errorMessage = "Erro desconhecido";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        setMessage(`❌ Erro no login: ${errorMessage}`);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -128,8 +132,32 @@ const AuthenticationPage = () => {
   ): Promise<void> => {
     e.preventDefault();
     if (validateRegister()) {
-      await fakeApiCall(registerData, "register");
-      console.log("Registro:", registerData);
+      setLoading(true);
+      setMessage(null);
+      try {
+        // Chama a api.register com os dados do estado
+        const response = await api.register(
+          registerData.name,
+          registerData.email,
+          registerData.password
+        );
+        console.log("Registro bem-sucedido:", response);
+        setMessage("🎉 Conta criada com sucesso!");
+
+        // Redireciona para o dashboard após o registro
+        router.push("/dashboard");
+      } catch (error) {
+        console.error("Erro no registro:", error);
+
+        // Adicione esta verificação de tipo
+        let errorMessage = "Erro desconhecido";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        setMessage(`❌ Erro no registro: ${errorMessage}`);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -184,7 +212,7 @@ const AuthenticationPage = () => {
                     <Input
                       id="login-password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="****"
+                      placeholder="**"
                       value={loginData.password}
                       onChange={(e) =>
                         setLoginData({ ...loginData, password: e.target.value })
@@ -298,7 +326,7 @@ const AuthenticationPage = () => {
                     <Input
                       id="register-password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="****"
+                      placeholder="**"
                       value={registerData.password}
                       onChange={(e) =>
                         setRegisterData({

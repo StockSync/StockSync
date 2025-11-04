@@ -15,19 +15,19 @@ import {
 import AddProdutoButton from "./components/add-produto-button";
 import ProdutosTable from "./components/produtos-table";
 import UpsertProdutoForm from "./components/upsert-produto-form";
-import { api, ProdutoData } from "@/lib/api"; // 👈 IMPORTAÇÃO NOVA
+import { api, ProdutoData } from "@/lib/api";
 
 const ProdutosPage = () => {
   // Estados
   const [produtos, setProdutos] = useState<ProdutoData[]>([]);
-  const [loading, setLoading] = useState(true); // 👈 NOVO
-  const [error, setError] = useState<string | null>(null); // 👈 NOVO
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [produtoEditando, setProdutoEditando] = useState<ProdutoData | null>(
     null
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // 🔥 CARREGAR PRODUTOS DA API
+  // CARREGAR PRODUTOS DA API
   useEffect(() => {
     carregarProdutos();
   }, []);
@@ -49,7 +49,7 @@ const ProdutosPage = () => {
     }
   };
 
-  // 🔥 ADICIONAR PRODUTO (MUDOU)
+  // ADICIONAR PRODUTO
   const handleAddProduto = async (novoProduto: Omit<ProdutoData, "id">) => {
     try {
       const produtoCriado = await api.createProduto(novoProduto);
@@ -64,7 +64,7 @@ const ProdutosPage = () => {
     }
   };
 
-  // 🔥 ATUALIZAR QUANTIDADE (MUDOU)
+  //ATUALIZAR QUANTIDADE
   const handleUpdateQuantidade = async (id: string, novaQuantidade: number) => {
     try {
       const produtoAtualizado = await api.updateProdutoQuantidade(
@@ -81,14 +81,14 @@ const ProdutosPage = () => {
     }
   };
 
-  // EDITAR PRODUTO (NÃO MUDOU)
+  // EDITAR PRODUTO
   const handleEditProduto = (produto: ProdutoData) => {
     console.log("Produto selecionado para edição:", produto);
     setProdutoEditando({ ...produto });
     setIsEditModalOpen(true);
   };
 
-  // 🔥 SALVAR EDIÇÕES (MUDOU)
+  //SALVAR EDIÇÕES
   const handleSaveEditProduto = async (produtoEditado: ProdutoData) => {
     try {
       const produtoAtualizado = await api.updateProduto(
@@ -109,7 +109,7 @@ const ProdutosPage = () => {
     }
   };
 
-  // 🔥 DELETAR PRODUTO (MUDOU)
+  //DELETAR PRODUTO
   const handleDeleteProduto = async (id: string) => {
     try {
       await api.deleteProduto(id);
@@ -128,7 +128,7 @@ const ProdutosPage = () => {
     setProdutoEditando(null);
   };
 
-  // 🔄 LOADING
+  //LOADING
   if (loading) {
     return (
       <PageContainer>
@@ -148,7 +148,7 @@ const ProdutosPage = () => {
     );
   }
 
-  // ❌ ERRO
+  //ERRO
   if (error) {
     return (
       <PageContainer>
@@ -182,7 +182,7 @@ const ProdutosPage = () => {
     );
   }
 
-  // ✅ RENDERIZAÇÃO NORMAL
+  // RENDERIZAÇÃO
   return (
     <PageContainer>
       <PageHeader>
