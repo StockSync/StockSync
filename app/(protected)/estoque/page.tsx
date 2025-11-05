@@ -13,15 +13,13 @@ import {
 } from "@/components/ui/page-container";
 import AddEstoqueButton from "./components/add-estoque-button";
 import EstoqueCard from "./components/estoque-card";
-import { api, EstoqueData } from "@/lib/api"; // 👈 IMPORTAÇÃO NOVA
+import { api, EstoqueData } from "@/lib/api";
 
 const EstoquePage = () => {
-  // Estados
   const [estoques, setEstoques] = useState<EstoqueData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // CARREGAR ESTOQUES DA API
   useEffect(() => {
     carregarEstoques();
   }, []);
@@ -30,11 +28,31 @@ const EstoquePage = () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Verifica se já está logado
+      if (!api.isAuthenticated()) {
+        console.log("⚠️ Não autenticado, redirecionando para login...");
+        window.location.href = "/authentication";
+        return;
+      }
+
       const data = await api.getEstoques();
       setEstoques(data);
       console.log("✅ Estoques carregados:", data);
     } catch (err) {
       console.error("❌ Erro ao carregar estoques:", err);
+
+      // Se for erro 401 ou 403, redireciona para login
+      if (
+        err instanceof Error &&
+        (err.message.includes("401") || err.message.includes("403"))
+      ) {
+        console.log("🔒 Token inválido, redirecionando para login...");
+        api.logout();
+        window.location.href = "/authentication";
+        return;
+      }
+
       setError(
         err instanceof Error ? err.message : "Erro ao carregar estoques"
       );
@@ -43,7 +61,6 @@ const EstoquePage = () => {
     }
   };
 
-  //ADICIONAR ESTOQUE
   const handleAddEstoque = async (novoEstoque: Omit<EstoqueData, "id">) => {
     try {
       const estoqueCriado = await api.createEstoque(novoEstoque);
@@ -58,7 +75,6 @@ const EstoquePage = () => {
     }
   };
 
-  //EDITAR ESTOQUE
   const handleEditEstoque = async (estoqueEditado: EstoqueData) => {
     try {
       const estoqueAtualizado = await api.updateEstoque(
@@ -77,7 +93,6 @@ const EstoquePage = () => {
     }
   };
 
-  //DELETAR ESTOQUE
   const handleDeleteEstoque = async (id: string) => {
     try {
       await api.deleteEstoque(id);
@@ -89,7 +104,6 @@ const EstoquePage = () => {
     }
   };
 
-  // LOADING
   if (loading) {
     return (
       <PageContainer>
@@ -109,7 +123,6 @@ const EstoquePage = () => {
     );
   }
 
-  //ERRO
   if (error) {
     return (
       <PageContainer>
@@ -143,7 +156,6 @@ const EstoquePage = () => {
     );
   }
 
-  //RENDERIZAÇÃO
   return (
     <PageContainer>
       <PageHeader>

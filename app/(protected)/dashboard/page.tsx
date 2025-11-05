@@ -18,20 +18,39 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // CARREGAR PRODUTOS DA API
   useEffect(() => {
-    carregarProdutos();
+    inicializarDashboard();
   }, []);
 
-  const carregarProdutos = async () => {
+  const inicializarDashboard = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Verifica se já está logado
+      if (!api.isAuthenticated()) {
+        console.log("⚠️ Não autenticado, redirecionando para login...");
+        window.location.href = "/authentication";
+        return;
+      }
+
       const data = await api.getProdutos();
       setProdutos(data);
       console.log("✅ Produtos carregados no Dashboard:", data);
     } catch (err) {
       console.error("❌ Erro ao carregar produtos:", err);
+
+      // Se for erro 401 ou 403, redireciona para login
+      if (
+        err instanceof Error &&
+        (err.message.includes("401") || err.message.includes("403"))
+      ) {
+        console.log("🔒 Token inválido, redirecionando para login...");
+        api.logout();
+        window.location.href = "/authentication";
+        return;
+      }
+
       setError(
         err instanceof Error ? err.message : "Erro ao carregar produtos"
       );
@@ -40,7 +59,9 @@ export default function Dashboard() {
     }
   };
 
-  // CÁLCULOS
+  const carregarProdutos = inicializarDashboard;
+
+  // Cálculos
   const totalProdutos = produtos.length;
   const produtosAtivos = produtos.filter((p) => p.quantidade > 0).length;
   const produtosInativos = produtos.filter((p) => p.quantidade === 0).length;
@@ -56,14 +77,14 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/*LOADING */}
+        {/* Loading */}
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
             <p className="mt-4 text-gray-600">Carregando dados...</p>
           </div>
         ) : error ? (
-          /* ERRO */
+          /* Erro */
           <div className="text-center py-12">
             <div className="text-red-600 mb-4">
               <Package className="h-16 w-16 mx-auto mb-4" />
@@ -80,7 +101,7 @@ export default function Dashboard() {
             </button>
           </div>
         ) : (
-          /* CONTEÚDO NORMAL */
+          /* Conteúdo Normal */
           <>
             {/* Cards de Resumo */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

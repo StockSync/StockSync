@@ -18,7 +18,6 @@ import UpsertProdutoForm from "./components/upsert-produto-form";
 import { api, ProdutoData } from "@/lib/api";
 
 const ProdutosPage = () => {
-  // Estados
   const [produtos, setProdutos] = useState<ProdutoData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +26,6 @@ const ProdutosPage = () => {
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // CARREGAR PRODUTOS DA API
   useEffect(() => {
     carregarProdutos();
   }, []);
@@ -36,11 +34,31 @@ const ProdutosPage = () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Verifica se já está logado
+      if (!api.isAuthenticated()) {
+        console.log("⚠️ Não autenticado, redirecionando para login...");
+        window.location.href = "/authentication";
+        return;
+      }
+
       const data = await api.getProdutos();
       setProdutos(data);
       console.log("✅ Produtos carregados:", data);
     } catch (err) {
       console.error("❌ Erro ao carregar produtos:", err);
+
+      // Se for erro 401 ou 403, redireciona para login
+      if (
+        err instanceof Error &&
+        (err.message.includes("401") || err.message.includes("403"))
+      ) {
+        console.log("🔒 Token inválido, redirecionando para login...");
+        api.logout();
+        window.location.href = "/authentication";
+        return;
+      }
+
       setError(
         err instanceof Error ? err.message : "Erro ao carregar produtos"
       );
@@ -49,7 +67,6 @@ const ProdutosPage = () => {
     }
   };
 
-  // ADICIONAR PRODUTO
   const handleAddProduto = async (novoProduto: Omit<ProdutoData, "id">) => {
     try {
       const produtoCriado = await api.createProduto(novoProduto);
@@ -64,7 +81,6 @@ const ProdutosPage = () => {
     }
   };
 
-  //ATUALIZAR QUANTIDADE
   const handleUpdateQuantidade = async (id: string, novaQuantidade: number) => {
     try {
       const produtoAtualizado = await api.updateProdutoQuantidade(
@@ -81,14 +97,12 @@ const ProdutosPage = () => {
     }
   };
 
-  // EDITAR PRODUTO
   const handleEditProduto = (produto: ProdutoData) => {
     console.log("Produto selecionado para edição:", produto);
     setProdutoEditando({ ...produto });
     setIsEditModalOpen(true);
   };
 
-  //SALVAR EDIÇÕES
   const handleSaveEditProduto = async (produtoEditado: ProdutoData) => {
     try {
       const produtoAtualizado = await api.updateProduto(
@@ -109,7 +123,6 @@ const ProdutosPage = () => {
     }
   };
 
-  //DELETAR PRODUTO
   const handleDeleteProduto = async (id: string) => {
     try {
       await api.deleteProduto(id);
@@ -128,7 +141,6 @@ const ProdutosPage = () => {
     setProdutoEditando(null);
   };
 
-  //LOADING
   if (loading) {
     return (
       <PageContainer>
@@ -148,7 +160,6 @@ const ProdutosPage = () => {
     );
   }
 
-  //ERRO
   if (error) {
     return (
       <PageContainer>
@@ -182,7 +193,6 @@ const ProdutosPage = () => {
     );
   }
 
-  // RENDERIZAÇÃO
   return (
     <PageContainer>
       <PageHeader>
