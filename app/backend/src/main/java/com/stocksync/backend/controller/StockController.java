@@ -1,6 +1,7 @@
 package com.stocksync.backend.controller;
 
 import com.stocksync.backend.dto.StockDTO;
+import com.stocksync.backend.dto.StockProductDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
 import com.stocksync.backend.infra.security.SecurityConfig;
 import com.stocksync.backend.model.User;
@@ -32,6 +33,18 @@ public class StockController {
     public ResponseEntity<StockDTO> createStock(@Valid @RequestBody StockRequestDTO stockRequestDTO, @AuthenticationPrincipal User user) {
         StockDTO createdStock = stockService.createStock(stockRequestDTO, user);
         return new ResponseEntity<>(createdStock, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{id}/products")
+    public ResponseEntity<StockDTO> addProductToStock(
+            @PathVariable("id") Long stockId,
+            @Valid @RequestBody StockProductDTO productDTO,
+            @AuthenticationPrincipal User user) {
+
+        StockDTO updatedStock = stockService.addProductToStock(stockId, productDTO, user);
+
+        // Retorna 201 CREATED com o DTO do estoque atualizado (seguindo seu padrão do createStock)
+        return new ResponseEntity<>(updatedStock, HttpStatus.CREATED);
     }
 
     // Endpoint para listar todos os estoques do usuário logado (RF2.2)

@@ -23,7 +23,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Tag(name = "Autenticação", description = "Controlador de autenticação de usuarios")
 @SecurityRequirement(name = SecurityConfig.SECURITY)

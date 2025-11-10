@@ -1,7 +1,9 @@
 package com.stocksync.backend.service;
 
 import com.stocksync.backend.dto.StockDTO;
+import com.stocksync.backend.dto.StockProductDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
+import com.stocksync.backend.exception.BusinessRuleException;
 import com.stocksync.backend.exception.ResourceNotFoundException;
 import com.stocksync.backend.model.*;
 import com.stocksync.backend.model.enuns.ProductStatus;
@@ -75,6 +77,48 @@ public class StockService {
 
         stock.setProducts(stockProducts);
         Stock savedStock = stockRepository.save(stock);
+        return convertToDTO(savedStock);
+    }
+
+    @Transactional
+    public StockDTO addProductToStock(Long stockId, StockProductDTO productDTO, User user) {
+
+        // 1. Encontrar o estoque
+        Stock stock = stockRepository.findById(stockId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estoque não encontrado com o ID: " + stockId));
+
+        // 2. Verificar permissão (o usuário logado é dono do estoque?)
+        if (!stock.getUser().getId().equals(user.getId())) {
+            throw new BusinessRuleException("Você não tem permissão para adicionar produtos a este estoque.");
+        }
+
+        // 3. Encontrar o produto no catálogo
+        Product product = productRepository.findById(productDTO.productId())
+                .orElseThrow(() -> new ResourceNotFoundException("Produto do catálogo não encontrado com o ID: " + productDTO.productId()));
+
+        // 4. Verificar se o produto JÁ EXISTE no estoque para evitar duplicatas
+        boolean productExists = stock.getProducts().stream()
+                .anyMatch(sp -> sp.getProduct().getId().equals(productDTO.productId()));
+
+        if (productExists) {
+            throw new BusinessRuleException("Este produto já existe neste estoque. Para alterar, use o endpoint de atualização de produto no estoque.");
+        }
+
+        // 5. Criar a nova entidade de associação StockProduct
+        StockProduct stockProduct = new StockProduct(
+                new StockProductId(stock.getId(), product.getId()),
+                product,
+                stock,
+                productDTO.quantity(),
+                productDTO.minimumQuantity(),
+                ProductStatus.IN_STOCK // Define um status padrão ao adicionar
+        );
+
+        // 6. Adicionar ao set e salvar (o CascadeType.ALL salvará o novo StockProduct)
+        stock.getProducts().add(stockProduct);
+        Stock savedStock = stockRepository.save(stock);
+
+        // 7. Retornar o DTO do estoque (padrão atual do seu serviço)
         return convertToDTO(savedStock);
     }
 
