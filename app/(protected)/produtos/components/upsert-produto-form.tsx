@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState, useEffect } from "react";
 import { Upload, Trash2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface ProdutoData {
   id: string;
@@ -26,18 +27,11 @@ interface ProdutoData {
   observacao?: string;
 }
 
-interface EstoqueOption {
-  id: string;
-  name: string;
-  location: string;
-}
-
 interface UpsertProdutoFormProps {
   onClose?: () => void;
   onSave?: (data: ProdutoData) => void;
   onDelete?: (id: string) => void;
   initialData?: ProdutoData | null;
-  estoques?: EstoqueOption[];
 }
 
 interface FormErrors {
@@ -52,7 +46,6 @@ const UpsertProdutoForm = ({
   onSave,
   onDelete,
   initialData = null,
-  estoques = [],
 }: UpsertProdutoFormProps) => {
   const [, setImagem] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
@@ -63,6 +56,17 @@ const UpsertProdutoForm = ({
     observacao: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // ✅ NOVO: Lista de estoques cadastrados
+  const [estoques, setEstoques] = useState<Array<{ id: number; name: string }>>(
+    []
+  );
+  const [loadingEstoques, setLoadingEstoques] = useState(false);
+
+  // ✅ NOVO: Buscar estoques quando o modal abrir
+  useEffect(() => {
+    carregarEstoques();
+  }, []);
 
   // useEffect para atualizar o formulário quando initialData mudar
   useEffect(() => {
@@ -88,6 +92,19 @@ const UpsertProdutoForm = ({
       setErrors({});
     }
   }, [initialData]);
+
+  const carregarEstoques = async () => {
+    try {
+      setLoadingEstoques(true);
+      const data = await api.getEstoques();
+      setEstoques(data);
+      console.log("✅ Estoques carregados:", data);
+    } catch (error) {
+      console.error("❌ Erro ao carregar estoques:", error);
+    } finally {
+      setLoadingEstoques(false);
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -140,7 +157,7 @@ const UpsertProdutoForm = ({
     }
 
     if (!formData.estoque.trim()) {
-      newErrors.estoque = "Nome do estoque é obrigatório";
+      newErrors.estoque = "Selecione um estoque";
       hasErrors = true;
     }
 
@@ -235,20 +252,48 @@ const UpsertProdutoForm = ({
             )}
           </div>
 
-          {/* Estoque */}
+          {/* Estoque - AGORA COM DROPDOWN */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Estoque
             </label>
-            <input
-              type="text"
-              placeholder="Ex: Estoque Alfa - Brasília"
-              value={formData.estoque}
-              onChange={(e) => handleInputChange("estoque", e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
-                errors.estoque ? "border-red-500" : "border-gray-300"
-              }`}
-            />
+            {loadingEstoques ? (
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-500">
+                Carregando estoques...
+              </div>
+            ) : estoques.length > 0 ? (
+              <select
+                value={formData.estoque}
+                onChange={(e) => handleInputChange("estoque", e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
+                  errors.estoque ? "border-red-500" : "border-gray-300"
+                }`}
+              >
+                <option value="">Selecione um estoque</option>
+                {estoques.map((estoque) => (
+                  <option key={estoque.id} value={estoque.name}>
+                    {estoque.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Ex: Estoque Principal"
+                  value={formData.estoque}
+                  onChange={(e) =>
+                    handleInputChange("estoque", e.target.value)
+                  }
+                  className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
+                    errors.estoque ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+                <p className="text-xs text-gray-500">
+                  Nenhum estoque encontrado. Digite o nome de um novo estoque.
+                </p>
+              </div>
+            )}
             {errors.estoque && (
               <p className="text-red-500 text-xs mt-1">{errors.estoque}</p>
             )}

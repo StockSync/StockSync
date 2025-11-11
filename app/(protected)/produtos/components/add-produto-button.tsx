@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,29 +9,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
 import { Plus, Upload } from "lucide-react";
+import { api } from "@/lib/api";
 
-// Tipagem para os dados do produto
-interface ProdutoData {
-  id: string;
+interface AddProdutoData {
   nome: string;
+  descricao?: string;
   quantidade: number;
-  estoque: string;
+  estoque: string; // Nome do estoque
   imagem?: string;
-  observacao?: string;
 }
 
-// Props que o componente recebe
 interface AddProdutoButtonProps {
-  onAddProduto: (produto: ProdutoData) => void;
+  onAddProduto: (produto: AddProdutoData) => void;
 }
 
 interface FormErrors {
   nome?: string;
   quantidade?: string;
   estoque?: string;
-  observacao?: string;
 }
 
 const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
@@ -42,9 +38,37 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
     nome: "",
     quantidade: "",
     estoque: "",
-    observacao: "",
+    descricao: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [estoques, setEstoques] = useState<Array<{ id: number; name: string }>>(
+    []
+  );
+  const [loadingEstoques, setLoadingEstoques] = useState(false);
+
+  // Buscar estoques quando abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      carregarEstoques();
+    }
+  }, [isOpen]);
+
+  const carregarEstoques = async () => {
+    try {
+      setLoadingEstoques(true);
+      const data = await api.getEstoques();
+      setEstoques(data);
+
+      // Se tiver estoques, seleciona o primeiro automaticamente
+      if (data.length > 0 && !formData.estoque) {
+        setFormData((prev) => ({ ...prev, estoque: data[0].name }));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar estoques:", error);
+    } finally {
+      setLoadingEstoques(false);
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -86,21 +110,18 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
     const newErrors: FormErrors = {};
     let hasErrors = false;
 
-    // Validar nome
     if (!formData.nome.trim()) {
       newErrors.nome = "Nome do produto é obrigatório";
       hasErrors = true;
     }
 
-    // Validar quantidade
-    if (!formData.quantidade || parseInt(formData.quantidade) <= 0) {
-      newErrors.quantidade = "Quantidade deve ser maior que 0";
+    if (!formData.quantidade || parseInt(formData.quantidade) < 0) {
+      newErrors.quantidade = "Quantidade deve ser maior ou igual a 0";
       hasErrors = true;
     }
 
-    // Validar estoque
     if (!formData.estoque.trim()) {
-      newErrors.estoque = "Nome do estoque é obrigatório";
+      newErrors.estoque = "Selecione um estoque";
       hasErrors = true;
     }
 
@@ -113,25 +134,23 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
       return;
     }
 
-    // Preparar dados para enviar
-    const produtoData: ProdutoData = {
-      id: Date.now().toString(),
+    const produtoData: AddProdutoData = {
       nome: formData.nome,
+      descricao: formData.descricao || undefined,
       quantidade: parseInt(formData.quantidade) || 0,
       estoque: formData.estoque,
       imagem: imagemPreview || undefined,
-      observacao: formData.observacao || undefined,
     };
 
-    // Chamar a função de callback para salvar
+    console.log("📤 Enviando produto:", produtoData);
     onAddProduto(produtoData);
 
     // Resetar formulário e fechar modal
     setFormData({
       nome: "",
       quantidade: "",
-      estoque: "",
-      observacao: "",
+      estoque: estoques.length > 0 ? estoques[0].name : "",
+      descricao: "",
     });
     setImagemPreview(null);
     setErrors({});
@@ -139,12 +158,11 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
   };
 
   const handleClose = () => {
-    // Resetar formulário ao fechar
     setFormData({
       nome: "",
       quantidade: "",
       estoque: "",
-      observacao: "",
+      descricao: "",
     });
     setImagemPreview(null);
     setErrors({});
@@ -154,7 +172,6 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Limpar erro quando usuário começar a digitar
     if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -201,7 +218,7 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
               <input
                 type="number"
                 placeholder="Ex: 5"
-                min="1"
+                min="0"
                 value={formData.quantidade}
                 onChange={(e) =>
                   handleInputChange("quantidade", e.target.value)
@@ -215,20 +232,48 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
               )}
             </div>
 
-            {/* Estoque */}
+            {/* Estoque - SELECT */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Estoque
               </label>
-              <input
-                type="text"
-                placeholder="Ex: Estoque Alfa - Brasília"
-                value={formData.estoque}
-                onChange={(e) => handleInputChange("estoque", e.target.value)}
-                className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
-                  errors.estoque ? "border-red-500" : "border-gray-300"
-                }`}
-              />
+              {loadingEstoques ? (
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-500">
+                  Carregando estoques...
+                </div>
+              ) : estoques.length > 0 ? (
+                <select
+                  value={formData.estoque}
+                  onChange={(e) => handleInputChange("estoque", e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
+                    errors.estoque ? "border-red-500" : "border-gray-300"
+                  }`}
+                >
+                  <option value="">Selecione um estoque</option>
+                  {estoques.map((estoque) => (
+                    <option key={estoque.id} value={estoque.name}>
+                      {estoque.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Ex: Estoque Principal"
+                    value={formData.estoque}
+                    onChange={(e) =>
+                      handleInputChange("estoque", e.target.value)
+                    }
+                    className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
+                      errors.estoque ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Nenhum estoque encontrado. Digite o nome de um novo estoque.
+                  </p>
+                </div>
+              )}
               {errors.estoque && (
                 <p className="text-red-500 text-xs mt-1">{errors.estoque}</p>
               )}
@@ -237,7 +282,7 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
             {/* Imagem */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Imagem
+                Imagem (opcional)
               </label>
               <input
                 id="image-upload"
@@ -274,17 +319,15 @@ const AddProdutoButton = ({ onAddProduto }: AddProdutoButtonProps) => {
               </div>
             </div>
 
-            {/* Observação */}
+            {/* Descrição */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Observação
+                Descrição (opcional)
               </label>
               <textarea
-                placeholder="Alguma observação sobre o produto (opcional)"
-                value={formData.observacao}
-                onChange={(e) =>
-                  handleInputChange("observacao", e.target.value)
-                }
+                placeholder="Alguma observação sobre o produto"
+                value={formData.descricao}
+                onChange={(e) => handleInputChange("descricao", e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:border-transparent resize-none"
               />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Package } from "lucide-react";
 import {
   PageActions,
@@ -13,46 +14,37 @@ import {
 } from "@/components/ui/page-container";
 import AddEstoqueButton from "./components/add-estoque-button";
 import EstoqueCard from "./components/estoque-card";
-import { api, EstoqueData } from "@/lib/api";
+import { api, EstoqueFrontend } from "@/lib/api";
 
 const EstoquePage = () => {
-  const [estoques, setEstoques] = useState<EstoqueData[]>([]);
+  const router = useRouter();
+  const [estoques, setEstoques] = useState<EstoqueFrontend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     carregarEstoques();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const carregarEstoques = async () => {
+    if (!api.isAuthenticated()) {
+      router.push("/authentication");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-
-      // Verifica se já está logado
-      if (!api.isAuthenticated()) {
-        console.log("⚠️ Não autenticado, redirecionando para login...");
-        window.location.href = "/authentication";
-        return;
-      }
-
       const data = await api.getEstoques();
       setEstoques(data);
-      console.log("✅ Estoques carregados:", data);
     } catch (err) {
-      console.error("❌ Erro ao carregar estoques:", err);
-
-      // Se for erro 401 ou 403, redireciona para login
-      if (
-        err instanceof Error &&
-        (err.message.includes("401") || err.message.includes("403"))
-      ) {
-        console.log("🔒 Token inválido, redirecionando para login...");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes("401") || errorMessage.includes("403")) {
         api.logout();
-        window.location.href = "/authentication";
+        router.push("/authentication");
         return;
       }
-
       setError(
         err instanceof Error ? err.message : "Erro ao carregar estoques"
       );
@@ -61,46 +53,41 @@ const EstoquePage = () => {
     }
   };
 
-  const handleAddEstoque = async (novoEstoque: Omit<EstoqueData, "id">) => {
+  const handleAddEstoque = async (novo: {
+    name: string;
+    location: string;
+    products: Array<{ name: string; quantity: number }>;
+  }) => {
     try {
-      const estoqueCriado = await api.createEstoque(novoEstoque);
-      setEstoques((prev) => [...prev, estoqueCriado]);
-      console.log("✅ Estoque criado:", estoqueCriado);
+      const criado = await api.createEstoque(novo);
+      setEstoques([...estoques, criado]);
     } catch (err) {
-      console.error("❌ Erro ao criar estoque:", err);
       alert(
-        "Erro ao criar estoque: " +
-          (err instanceof Error ? err.message : "Erro desconhecido")
+        "Erro ao criar: " + (err instanceof Error ? err.message : String(err))
       );
     }
   };
 
-  const handleEditEstoque = async (estoqueEditado: EstoqueData) => {
+  const handleEditEstoque = async (editado: EstoqueFrontend) => {
     try {
-      const estoqueAtualizado = await api.updateEstoque(
-        estoqueEditado.id,
-        estoqueEditado
-      );
-      setEstoques((prev) =>
-        prev.map((estoque) =>
-          estoque.id === estoqueEditado.id ? estoqueAtualizado : estoque
-        )
-      );
-      console.log("✅ Estoque atualizado:", estoqueAtualizado);
+      const atualizado = await api.updateEstoque(editado.id, editado);
+      setEstoques(estoques.map((e) => (e.id === editado.id ? atualizado : e)));
     } catch (err) {
-      console.error("❌ Erro ao atualizar estoque:", err);
-      alert("Erro ao atualizar estoque");
+      alert(
+        "Erro ao atualizar: " +
+          (err instanceof Error ? err.message : String(err))
+      );
     }
   };
 
-  const handleDeleteEstoque = async (id: string) => {
+  const handleDeleteEstoque = async (id: number) => {
     try {
       await api.deleteEstoque(id);
-      setEstoques((prev) => prev.filter((estoque) => estoque.id !== id));
-      console.log("✅ Estoque deletado");
+      setEstoques(estoques.filter((e) => e.id !== id));
     } catch (err) {
-      console.error("❌ Erro ao deletar estoque:", err);
-      alert("Erro ao deletar estoque");
+      alert(
+        "Erro ao deletar: " + (err instanceof Error ? err.message : String(err))
+      );
     }
   };
 
@@ -110,13 +97,12 @@ const EstoquePage = () => {
         <PageHeader>
           <PageHeaderContent>
             <PageTitle>Estoque</PageTitle>
-            <PageDescription>Carregando estoques...</PageDescription>
+            <PageDescription>Carregando...</PageDescription>
           </PageHeaderContent>
         </PageHeader>
         <PageContent>
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Carregando...</p>
           </div>
         </PageContent>
       </PageContainer>
@@ -129,7 +115,7 @@ const EstoquePage = () => {
         <PageHeader>
           <PageHeaderContent>
             <PageTitle>Estoque</PageTitle>
-            <PageDescription>Erro ao carregar estoques</PageDescription>
+            <PageDescription>Erro ao carregar</PageDescription>
           </PageHeaderContent>
           <PageActions>
             <AddEstoqueButton onAddEstoque={handleAddEstoque} />
@@ -137,16 +123,11 @@ const EstoquePage = () => {
         </PageHeader>
         <PageContent>
           <div className="text-center py-12">
-            <div className="text-red-600 mb-4">
-              <Package className="h-16 w-16 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                Erro ao carregar estoques
-              </h3>
-              <p className="text-sm">{error}</p>
-            </div>
+            <Package className="h-16 w-16 mx-auto mb-4 text-red-600" />
+            <p className="text-sm text-gray-600">{error}</p>
             <button
               onClick={carregarEstoques}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
             >
               Tentar novamente
             </button>
@@ -160,9 +141,7 @@ const EstoquePage = () => {
     <PageContainer>
       <PageHeader>
         <PageHeaderContent>
-          <div className="estoque-page-title">
-            <PageTitle>Estoque</PageTitle>
-          </div>
+          <PageTitle>Estoque</PageTitle>
           <PageDescription>
             Gerencie todos os seus estoques de forma simples e organizada.
           </PageDescription>

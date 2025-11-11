@@ -1,380 +1,142 @@
 "use client";
 
-import { api } from "@/lib/api";
-import { useRouter } from "next/navigation";
-
-import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface LoginData {
-  email: string;
-  password: string;
-}
-
-interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-}
-
-interface Errors {
-  [key: string]: string;
-}
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 const AuthenticationPage = () => {
-  const [activeTab, setActiveTab] = useState<string>("login");
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const [loginData, setLoginData] = useState<LoginData>({
-    email: "",
-    password: "",
-  });
-  const [loginErrors, setLoginErrors] = useState<Errors>({});
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
 
-  const [registerData, setRegisterData] = useState<RegisterData>({
-    name: "",
-    email: "",
-    password: "",
-  });
-  const [registerErrors, setRegisterErrors] = useState<Errors>({});
-
-  const isValidEmail = (email: string): boolean => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  const validateLogin = (): boolean => {
-    const errors: Errors = {};
-
-    if (!loginData.email.trim()) {
-      errors.email = "E-mail é obrigatório";
-    } else if (!isValidEmail(loginData.email)) {
-      errors.email = "E-mail inválido";
-    }
-
-    if (!loginData.password.trim()) {
-      errors.password = "Senha é obrigatória";
-    }
-
-    setLoginErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const validateRegister = (): boolean => {
-    const errors: Errors = {};
-
-    if (!registerData.name.trim()) {
-      errors.name = "Nome é obrigatório";
-    }
-
-    if (!registerData.email.trim()) {
-      errors.email = "E-mail é obrigatório";
-    } else if (!isValidEmail(registerData.email)) {
-      errors.email = "E-mail inválido";
-    }
-
-    if (!registerData.password.trim()) {
-      errors.password = "Senha é obrigatória";
-    } else if (registerData.password.length < 8) {
-      errors.password = "A senha deve ter pelo menos 8 caracteres";
-    }
-
-    setRegisterErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleLoginSubmit = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ): Promise<void> => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateLogin()) {
-      setLoading(true);
-      setMessage(null);
-      try {
-        // Chama a api.login com os dados do estado
-        const response = await api.login(loginData.email, loginData.password);
-        console.log("Login bem-sucedido:", response);
-        setMessage("✅ Login realizado com sucesso!");
+    setLoading(true);
+    setError(null);
 
-        // Redireciona para o dashboard
-        router.push("/dashboard");
-      } catch (error) {
-        console.error("Erro no login:", error);
-
-        // Adicione esta verificação de tipo
-        let errorMessage = "Erro desconhecido";
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        }
-        setMessage(`❌ Erro no login: ${errorMessage}`);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      await api.login(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("❌ Erro no login:", err);
+      setError(err instanceof Error ? err.message : "Erro ao fazer login");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegisterSubmit = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ): Promise<void> => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateRegister()) {
-      setLoading(true);
-      setMessage(null);
-      try {
-        // Chama a api.register com os dados do estado
-        const response = await api.register(
-          registerData.name,
-          registerData.email,
-          registerData.password
-        );
-        console.log("Registro bem-sucedido:", response);
-        setMessage("🎉 Conta criada com sucesso!");
+    setLoading(true);
+    setError(null);
 
-        // Redireciona para o dashboard após o registro
-        router.push("/dashboard");
-      } catch (error) {
-        console.error("Erro no registro:", error);
-
-        // Adicione esta verificação de tipo
-        let errorMessage = "Erro desconhecido";
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        }
-        setMessage(`❌ Erro no registro: ${errorMessage}`);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      await api.register(name, email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("❌ Erro no registro:", err);
+      setError(err instanceof Error ? err.message : "Erro ao fazer registro");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="w-[400px]"
-      >
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="login">Login</TabsTrigger>
-          <TabsTrigger value="register">Criar conta</TabsTrigger>
-        </TabsList>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1
+          className="text-2xl font-bold text-center mb-6"
+          style={{ color: "#411A85" }}
+        >
+          {isRegister ? "Criar Conta" : "Login"}
+        </h1>
 
-        <TabsContent value="login">
-          <Card>
-            <CardHeader className="pb-4 text-center">
-              <div className="mb-4 flex justify-center">
-                <img
-                  src="/logo.svg"
-                  alt="Stock Sync Logo"
-                  className="h-40 w-40 object-contain"
-                />
-              </div>
-              <CardTitle className="mt-2 text-2xl">Faça seu login</CardTitle>
-            </CardHeader>
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+            {error}
+          </div>
+        )}
 
-            <CardContent>
-              <div className="grid gap-4">
-                <div>
-                  <Label htmlFor="login-email">E-mail</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seuemail@email.com"
-                    value={loginData.email}
-                    onChange={(e) =>
-                      setLoginData({ ...loginData, email: e.target.value })
-                    }
-                  />
-                  {loginErrors.email && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {loginErrors.email}
-                    </p>
-                  )}
-                </div>
+        <form
+          onSubmit={isRegister ? handleRegister : handleLogin}
+          className="space-y-4"
+        >
+          {isRegister && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nome
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome"
+                required
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+              />
+            </div>
+          )}
 
-                <div>
-                  <Label htmlFor="login-password">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="login-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="**"
-                      value={loginData.password}
-                      onChange={(e) =>
-                        setLoginData({ ...loginData, password: e.target.value })
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {loginErrors.password && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {loginErrors.password}
-                    </p>
-                  )}
-                  <div className="mt-2 text-center">
-                    <a
-                      href="#"
-                      className="text-sm text-purple-600 hover:underline"
-                    >
-                      Esqueceu sua senha?
-                    </a>
-                  </div>
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+            />
+          </div>
 
-                <Button
-                  onClick={handleLoginSubmit}
-                  className="w-full bg-purple-700 text-white hover:bg-purple-800"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Carregando...
-                    </>
-                  ) : (
-                    "Acessar"
-                  )}
-                </Button>
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Senha
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Sua senha"
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+            />
+          </div>
 
-              {message && (
-                <p className="mt-3 text-center text-sm text-green-600">
-                  {message}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full text-white font-bold py-2 px-4 rounded-md transition disabled:opacity-50"
+            style={{ backgroundColor: "#421986" }}
+          >
+            {loading ? "Carregando..." : isRegister ? "Criar Conta" : "Entrar"}
+          </button>
+        </form>
 
-        <TabsContent value="register">
-          <Card>
-            <CardHeader className="pb-4 text-center">
-              <div className="mb-4 flex justify-center">
-                <img
-                  src="/logo.svg"
-                  alt="Stock Sync Logo"
-                  className="h-40 w-40 object-contain"
-                />
-              </div>
-              <CardTitle className="mt-2 text-2xl">Criar conta</CardTitle>
-              <CardDescription>Preencha os dados abaixo</CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <div className="grid gap-4">
-                <div>
-                  <Label htmlFor="register-name">Nome</Label>
-                  <Input
-                    id="register-name"
-                    placeholder="Seu nome completo"
-                    value={registerData.name}
-                    onChange={(e) =>
-                      setRegisterData({ ...registerData, name: e.target.value })
-                    }
-                  />
-                  {registerErrors.name && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {registerErrors.name}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="register-email">E-mail</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    placeholder="seuemail@email.com"
-                    value={registerData.email}
-                    onChange={(e) =>
-                      setRegisterData({
-                        ...registerData,
-                        email: e.target.value,
-                      })
-                    }
-                  />
-                  {registerErrors.email && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {registerErrors.email}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="register-password">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="register-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="**"
-                      value={registerData.password}
-                      onChange={(e) =>
-                        setRegisterData({
-                          ...registerData,
-                          password: e.target.value,
-                        })
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  {registerErrors.password && (
-                    <p className="mt-1 text-sm text-red-500">
-                      {registerErrors.password}
-                    </p>
-                  )}
-                </div>
-
-                <Button
-                  onClick={handleRegisterSubmit}
-                  className="w-full bg-purple-700 text-white hover:bg-purple-800"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Carregando...
-                    </>
-                  ) : (
-                    "Criar Conta"
-                  )}
-                </Button>
-              </div>
-
-              {message && (
-                <p className="mt-3 text-center text-sm text-green-600">
-                  {message}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => {
+              if (!isRegister) {
+                api.logout();
+              }
+              setIsRegister(!isRegister);
+              setError(null);
+            }}
+            className="text-sm hover:underline"
+            style={{ color: "#421986" }}
+          >
+            {isRegister
+              ? "Já tem conta? Faça login"
+              : "Não tem conta? Crie uma"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

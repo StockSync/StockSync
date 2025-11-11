@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Package2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import {
@@ -15,50 +16,40 @@ import {
 import AddProdutoButton from "./components/add-produto-button";
 import ProdutosTable from "./components/produtos-table";
 import UpsertProdutoForm from "./components/upsert-produto-form";
-import { api, ProdutoData } from "@/lib/api";
+import { api, ProdutoFrontend } from "@/lib/api";
 
 const ProdutosPage = () => {
-  const [produtos, setProdutos] = useState<ProdutoData[]>([]);
+  const router = useRouter();
+  const [produtos, setProdutos] = useState<ProdutoFrontend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [produtoEditando, setProdutoEditando] = useState<ProdutoData | null>(
-    null
-  );
+  const [produtoEditando, setProdutoEditando] =
+    useState<ProdutoFrontend | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     carregarProdutos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const carregarProdutos = async () => {
+    if (!api.isAuthenticated()) {
+      router.push("/authentication");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
-
-      // Verifica se já está logado
-      if (!api.isAuthenticated()) {
-        console.log("⚠️ Não autenticado, redirecionando para login...");
-        window.location.href = "/authentication";
-        return;
-      }
-
       const data = await api.getProdutos();
       setProdutos(data);
-      console.log("✅ Produtos carregados:", data);
     } catch (err) {
-      console.error("❌ Erro ao carregar produtos:", err);
-
-      // Se for erro 401 ou 403, redireciona para login
-      if (
-        err instanceof Error &&
-        (err.message.includes("401") || err.message.includes("403"))
-      ) {
-        console.log("🔒 Token inválido, redirecionando para login...");
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (errorMessage.includes("401") || errorMessage.includes("403")) {
         api.logout();
-        window.location.href = "/authentication";
+        router.push("/authentication");
         return;
       }
-
       setError(
         err instanceof Error ? err.message : "Erro ao carregar produtos"
       );
@@ -67,78 +58,66 @@ const ProdutosPage = () => {
     }
   };
 
-  const handleAddProduto = async (novoProduto: Omit<ProdutoData, "id">) => {
+  // ✅ CORRIGIDO: Aceita o campo estoque
+  const handleAddProduto = async (novoProduto: {
+    nome: string;
+    descricao?: string;
+    quantidade: number;
+    estoque: string; // ✅ Adicionado
+    imagem?: string;
+  }) => {
     try {
-      const produtoCriado = await api.createProduto(novoProduto);
-      setProdutos((prev) => [...prev, produtoCriado]);
-      console.log("✅ Produto criado:", produtoCriado);
+      const criado = await api.createProduto(novoProduto);
+      setProdutos([...produtos, criado]);
     } catch (err) {
-      console.error("❌ Erro ao criar produto:", err);
       alert(
-        "Erro ao criar produto: " +
-          (err instanceof Error ? err.message : "Erro desconhecido")
+        "Erro ao criar: " + (err instanceof Error ? err.message : String(err))
       );
     }
   };
 
-  const handleUpdateQuantidade = async (id: string, novaQuantidade: number) => {
+  const handleUpdateQuantidade = async (id: number, quantidade: number) => {
     try {
-      const produtoAtualizado = await api.updateProdutoQuantidade(
-        id,
-        novaQuantidade
-      );
-      setProdutos((prev) =>
-        prev.map((produto) => (produto.id === id ? produtoAtualizado : produto))
-      );
-      console.log("✅ Quantidade atualizada:", produtoAtualizado);
+      const atualizado = await api.updateProdutoQuantidade(id, quantidade);
+      setProdutos(produtos.map((p) => (p.id === id ? atualizado : p)));
     } catch (err) {
-      console.error("❌ Erro ao atualizar quantidade:", err);
-      alert("Erro ao atualizar quantidade");
+      alert(
+        "Erro ao atualizar: " +
+          (err instanceof Error ? err.message : String(err))
+      );
     }
   };
 
-  const handleEditProduto = (produto: ProdutoData) => {
-    console.log("Produto selecionado para edição:", produto);
+  const handleEditProduto = (produto: ProdutoFrontend) => {
     setProdutoEditando({ ...produto });
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEditProduto = async (produtoEditado: ProdutoData) => {
+  const handleSaveEditProduto = async (editado: ProdutoFrontend) => {
     try {
-      const produtoAtualizado = await api.updateProduto(
-        produtoEditado.id,
-        produtoEditado
-      );
-      setProdutos((prev) =>
-        prev.map((produto) =>
-          produto.id === produtoEditado.id ? produtoAtualizado : produto
-        )
-      );
+      const atualizado = await api.updateProduto(editado.id, editado);
+      setProdutos(produtos.map((p) => (p.id === editado.id ? atualizado : p)));
       setIsEditModalOpen(false);
       setProdutoEditando(null);
-      console.log("✅ Produto atualizado:", produtoAtualizado);
     } catch (err) {
-      console.error("❌ Erro ao atualizar produto:", err);
-      alert("Erro ao atualizar produto");
+      alert(
+        "Erro ao atualizar: " +
+          (err instanceof Error ? err.message : String(err))
+      );
     }
   };
 
-  const handleDeleteProduto = async (id: string) => {
+  const handleDeleteProduto = async (id: number) => {
     try {
       await api.deleteProduto(id);
-      setProdutos((prev) => prev.filter((produto) => produto.id !== id));
+      setProdutos(produtos.filter((p) => p.id !== id));
       setIsEditModalOpen(false);
       setProdutoEditando(null);
-      console.log("✅ Produto deletado");
     } catch (err) {
-      console.error("❌ Erro ao deletar produto:", err);
-      alert("Erro ao deletar produto");
+      alert(
+        "Erro ao deletar: " + (err instanceof Error ? err.message : String(err))
+      );
     }
-  };
-
-  const handleCloseEdit = () => {
-    setIsEditModalOpen(false);
-    setProdutoEditando(null);
   };
 
   if (loading) {
@@ -147,13 +126,12 @@ const ProdutosPage = () => {
         <PageHeader>
           <PageHeaderContent>
             <PageTitle>Produtos</PageTitle>
-            <PageDescription>Carregando produtos...</PageDescription>
+            <PageDescription>Carregando...</PageDescription>
           </PageHeaderContent>
         </PageHeader>
         <PageContent>
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Carregando...</p>
           </div>
         </PageContent>
       </PageContainer>
@@ -166,7 +144,7 @@ const ProdutosPage = () => {
         <PageHeader>
           <PageHeaderContent>
             <PageTitle>Produtos</PageTitle>
-            <PageDescription>Erro ao carregar produtos</PageDescription>
+            <PageDescription>Erro ao carregar</PageDescription>
           </PageHeaderContent>
           <PageActions>
             <AddProdutoButton onAddProduto={handleAddProduto} />
@@ -174,16 +152,11 @@ const ProdutosPage = () => {
         </PageHeader>
         <PageContent>
           <div className="text-center py-12">
-            <div className="text-red-600 mb-4">
-              <Package2 className="h-16 w-16 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">
-                Erro ao carregar produtos
-              </h3>
-              <p className="text-sm">{error}</p>
-            </div>
+            <Package2 className="h-16 w-16 mx-auto mb-4 text-red-600" />
+            <p className="text-sm text-gray-600">{error}</p>
             <button
               onClick={carregarProdutos}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
             >
               Tentar novamente
             </button>
@@ -197,9 +170,7 @@ const ProdutosPage = () => {
     <PageContainer>
       <PageHeader>
         <PageHeaderContent>
-          <div className="produtos-page-title">
-            <PageTitle>Produtos</PageTitle>
-          </div>
+          <PageTitle>Produtos</PageTitle>
           <PageDescription>
             Gerencie todos os seus produtos de forma simples e organizada.
           </PageDescription>
@@ -234,7 +205,7 @@ const ProdutosPage = () => {
         <UpsertProdutoForm
           onSave={handleSaveEditProduto}
           onDelete={handleDeleteProduto}
-          onClose={handleCloseEdit}
+          onClose={() => setIsEditModalOpen(false)}
           initialData={produtoEditando}
         />
       </Dialog>
