@@ -6,6 +6,7 @@ import com.stocksync.backend.dto.ResponseDTO;
 import com.stocksync.backend.infra.security.SecurityConfig;
 import com.stocksync.backend.infra.security.TokenService;
 import com.stocksync.backend.model.User;
+import com.stocksync.backend.model.enuns.Role; // 🔑 Importa o Enum Role
 import com.stocksync.backend.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -20,7 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.Collections; // 🔑 Novo Import para Collections.singletonList
 import java.util.Optional;
+import java.util.Arrays;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -61,6 +65,10 @@ public class AuthController {
             newUser.setEmail(body.email());
             newUser.setName(body.name());
             newUser.setCreationDate(LocalDate.now());
+
+            // 🔑 CORREÇÃO FINAL: Atribui a permissão ROLE_USER
+            newUser.setRoles(Collections.singletonList(Role.USER));
+
             this.repository.save(newUser);
 
             String token = this.tokenService.genereteToken(newUser);

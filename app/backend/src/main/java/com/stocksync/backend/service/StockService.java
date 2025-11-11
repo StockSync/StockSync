@@ -2,6 +2,7 @@ package com.stocksync.backend.service;
 
 import com.stocksync.backend.dto.StockDTO;
 import com.stocksync.backend.dto.StockProductDTO;
+import com.stocksync.backend.dto.StockProductResponseDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
 import com.stocksync.backend.exception.BusinessRuleException;
 import com.stocksync.backend.exception.ResourceNotFoundException;
@@ -33,19 +34,21 @@ public class StockService {
 
     // Listar todos os estoques de um usuário (RF2.2)
     @Transactional(readOnly = true)
-    public List<StockDTO> getAllStocksByUser(Long userId) {
+    // 1. MODIFICAR o tipo de retorno
+    public List<StockProductResponseDTO> getAllStocksByUser(Long userId) {
         List<Stock> stocks = stockRepository.findByUserId(userId);
+
         return stocks.stream()
-                .map(this::convertToDTO)
+                .map(StockProductResponseDTO::new) // Mapeia para o novo DTO
                 .collect(Collectors.toList());
     }
 
     // Buscar um estoque pelo ID
     @Transactional(readOnly = true)
-    public StockDTO getStockById(Long stockId) {
-        Stock stock = stockRepository.findById(stockId)
-                .orElseThrow(() -> new RuntimeException("Estoque não encontrado com o ID: " + stockId));
-        return convertToDTO(stock);
+    public StockProductResponseDTO getStockById(Long stockId) {
+        Stock stock = stockRepository.findByIdFetchingProducts(stockId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estoque não encontrado com o ID: " + stockId));
+        return new StockProductResponseDTO(stock);
     }
 
     // Criar um novo estoque (RF2.1)

@@ -2,6 +2,7 @@ package com.stocksync.backend.controller;
 
 import com.stocksync.backend.dto.StockDTO;
 import com.stocksync.backend.dto.StockProductDTO;
+import com.stocksync.backend.dto.StockProductResponseDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
 import com.stocksync.backend.infra.security.SecurityConfig;
 import com.stocksync.backend.model.User;
@@ -49,15 +50,17 @@ public class StockController {
 
     // Endpoint para listar todos os estoques do usuário logado (RF2.2)
     @GetMapping
-    public ResponseEntity<List<StockDTO>> getAllStocksByUser(@AuthenticationPrincipal User user) {
-        List<StockDTO> stocks = stockService.getAllStocksByUser(user.getId());
+    // 1. MODIFICAR o tipo de retorno
+    public ResponseEntity<List<StockProductResponseDTO>> getAllStocksByUser(@AuthenticationPrincipal User user) {
+        List<StockProductResponseDTO> stocks = stockService.getAllStocksByUser(user.getId());
         return ResponseEntity.ok(stocks);
     }
 
     // Endpoint para buscar um estoque pelo ID
     @GetMapping("/{id}")
-    public ResponseEntity<StockDTO> getStockById(@PathVariable("id") Long stockId) {
-        StockDTO stock = stockService.getStockById(stockId);
+    // 2. MODIFICAR o tipo de retorno
+    public ResponseEntity<StockProductResponseDTO> getStockById(@PathVariable("id") Long stockId) {
+        StockProductResponseDTO stock = stockService.getStockById(stockId);
         return ResponseEntity.ok(stock);
     }
 

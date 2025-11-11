@@ -45,9 +45,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/dashboard").permitAll() // TEMPORARIO
+                        // 💡 CORREÇÃO: Libera TODAS as rotas sob /api/auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        // Remover a liberação TEMPORÁRIA se não for mais necessária
+                        .requestMatchers(HttpMethod.GET, "/dashboard").permitAll()
 
                         // Protege todo o resto:
                         .anyRequest().authenticated()
@@ -87,3 +88,4 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 }
+
