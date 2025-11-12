@@ -216,7 +216,7 @@ export default function Dashboard() {
                         className="font-medium text-sm text-center"
                         style={{ color: "#411A85" }}
                       >
-                        SKU
+                        Quantidade
                       </TableHead>
                       <TableHead
                         className="font-medium text-sm text-center"
@@ -227,39 +227,43 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dashboard.products.slice(0, 8).map((produto) => (
-                      <TableRow
-                        key={produto.id}
-                        className="border-b border-gray-100"
-                      >
-                        <TableCell className="font-normal text-sm text-gray-900">
-                          {produto.name}
-                        </TableCell>
-                        <TableCell className="text-center text-sm text-gray-900">
-                          {produto.sku || "-"}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                              produto.status === "ACTIVE"
-                                ? "bg-green-50 text-green-700"
-                                : "bg-red-50 text-red-700"
-                            }`}
-                          >
-                            <div
-                              className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                                produto.status === "ACTIVE"
-                                  ? "bg-green-700"
-                                  : "bg-red-700"
+                    {dashboard.products.slice(0, 8).map((produto) => {
+                      // ✅ CORREÇÃO: Pega a quantidade do primeiro estoque
+                      const quantidade = produto.stocks?.[0]?.quantity || 0;
+                      // ✅ CORREÇÃO: Status correto (ATIVO/INATIVO em português)
+                      const isAtivo = produto.status === "ATIVO";
+
+                      return (
+                        <TableRow
+                          key={produto.id}
+                          className="border-b border-gray-100"
+                        >
+                          <TableCell className="font-normal text-sm text-gray-900">
+                            {produto.name}
+                          </TableCell>
+                          {/* ✅ CORREÇÃO: Mostra quantidade em vez de SKU */}
+                          <TableCell className="text-center text-sm text-gray-900">
+                            <span className="font-medium">{quantidade}</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                isAtivo
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-red-50 text-red-700"
                               }`}
-                            />
-                            {produto.status === "ACTIVE"
-                              ? "Produto Ativo"
-                              : "Produto Inativo"}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                            >
+                              <div
+                                className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                  isAtivo ? "bg-green-700" : "bg-red-700"
+                                }`}
+                              />
+                              {isAtivo ? "Produto Ativo" : "Produto Inativo"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

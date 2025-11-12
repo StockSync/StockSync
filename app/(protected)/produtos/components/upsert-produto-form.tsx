@@ -170,6 +170,18 @@ const UpsertProdutoForm = ({
       return;
     }
 
+    // ✅ CORREÇÃO: Busca o ID do estoque pelo NOME SELECIONADO
+    const targetStock = estoques.find((s) => s.name === formData.estoque);
+    const stockId = targetStock?.id;
+
+    // Validação: Se não encontrou o estoque
+    if (!stockId || stockId <= 0) {
+      alert(
+        "Erro: O estoque selecionado não foi encontrado. Tente selecionar novamente."
+      );
+      return;
+    }
+
     const produtoData: ProdutoData = {
       id: initialData?.id || Date.now().toString(),
       nome: formData.nome,
@@ -179,7 +191,14 @@ const UpsertProdutoForm = ({
       observacao: formData.observacao || undefined,
     };
 
-    onSave?.(produtoData);
+    console.log("📤 Enviando para salvar:", {
+      produtoData,
+      stockId,
+      estoqueNome: formData.estoque,
+    });
+
+    // ✅ Passa o stockId NOVO para o componente pai
+    onSave?.(produtoData, stockId);
     handleClose();
   };
 
@@ -282,9 +301,7 @@ const UpsertProdutoForm = ({
                   type="text"
                   placeholder="Ex: Estoque Principal"
                   value={formData.estoque}
-                  onChange={(e) =>
-                    handleInputChange("estoque", e.target.value)
-                  }
+                  onChange={(e) => handleInputChange("estoque", e.target.value)}
                   className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
                     errors.estoque ? "border-red-500" : "border-gray-300"
                   }`}

@@ -1,6 +1,7 @@
-// src/lib/api.ts - VERSÃO COMPLETA ATUALIZADA
+// src/lib/api.ts - VERSÃO FINAL
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const DEFAULT_STOCK_NAME = "Estoque Principal";
 
 // ==================== INTERFACES ====================
 
@@ -20,7 +21,6 @@ export interface ResponseDTO {
   token: string;
 }
 
-// ✅ ATUALIZADO: ProductDTO agora pode receber stocks
 export interface ProductDTO {
   id: number;
   name: string;
@@ -33,7 +33,7 @@ export interface ProductDTO {
     stockName: string;
     quantity: number;
     minimumQuantity: number;
-    productStatus?: string;
+    productStatus?: "LOW_STOCK" | "IN_STOCK" | "MISSING";
   }>;
 }
 
@@ -45,7 +45,6 @@ export interface ProductRequestDTO {
   status?: "ATIVO" | "INATIVO";
 }
 
-// ✅ ATUALIZADO: StockDTO agora pode receber products
 export interface StockDTO {
   stockId: number;
   name: string;
@@ -174,24 +173,19 @@ async function request<T>(
   }
 }
 
-const DEFAULT_STOCK_NAME = "Estoque Principal";
-
 // ==================== API ====================
 
 export const api = {
   // ========== AUTENTICAÇÃO ==========
-
   login: async (email: string, password: string): Promise<ResponseDTO> => {
     const response = await request<ResponseDTO>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-
     if (response.token) {
       saveToken(response.token);
       console.log("✅ Login bem-sucedido!");
     }
-
     return response;
   },
 
@@ -201,17 +195,14 @@ export const api = {
     password: string
   ): Promise<ResponseDTO> => {
     removeToken();
-
     const response = await request<ResponseDTO>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     });
-
     if (response.token) {
       saveToken(response.token);
       console.log("✅ Registro bem-sucedido!");
     }
-
     return response;
   },
 
@@ -224,21 +215,18 @@ export const api = {
   },
 
   // ========== DASHBOARD ==========
-
   getDashboard: async (): Promise<DashboardDTO> => {
     return request<DashboardDTO>("/dashboard");
   },
 
   // ========== PRODUTOS ==========
 
-  // ✅ ATUALIZADO: Agora pega quantidade e estoque do backend
   getProdutos: async (): Promise<ProdutoFrontend[]> => {
     try {
       console.log("📤 Buscando produtos...");
       const products = await request<ProductDTO[]>("/products");
 
       return products.map((product) => {
-        // Pega o primeiro estoque vinculado (se existir)
         const firstStock = product.stocks?.[0];
 
         return {
@@ -257,7 +245,6 @@ export const api = {
     }
   },
 
-  // ✅ ATUALIZADO: Garante que existe estoque padrão
   createProduto: async (produto: {
     nome: string;
     descricao?: string;
@@ -268,7 +255,6 @@ export const api = {
     console.log("➕ Criando produto:", produto);
 
     try {
-      // PASSO 1: Criar produto no catálogo (SEM estoque)
       console.log("📝 PASSO 1: Criando produto no catálogo...");
       const productCreated = await request<ProductDTO>("/products", {
         method: "POST",
@@ -282,16 +268,13 @@ export const api = {
 
       console.log("✅ Produto criado no catálogo:", productCreated);
 
-      // PASSO 2: Se tem quantidade > 0, adicionar ao estoque
       if (produto.quantidade > 0) {
         try {
           console.log("📦 PASSO 2: Adicionando produto ao estoque...");
 
-          // Busca o estoque selecionado
           const stocks = await request<StockDTO[]>("/stocks");
           let targetStock = stocks.find((s) => s.name === produto.estoque);
 
-          // Se não existe, cria o estoque
           if (!targetStock) {
             console.log(`📦 Criando novo estoque: ${produto.estoque}`);
             targetStock = await request<StockDTO>("/stocks", {
@@ -305,9 +288,8 @@ export const api = {
           }
 
           console.log(`✅ Usando estoque ID: ${targetStock.stockId}`);
-
-          // Adiciona produto ao estoque (cria registro em estoque_produto)
           console.log(`📤 POST /stocks/${targetStock.stockId}/products`);
+
           await request(`/stocks/${targetStock.stockId}/products`, {
             method: "POST",
             body: JSON.stringify({
@@ -320,12 +302,8 @@ export const api = {
           console.log("✅ Produto adicionado ao estoque com sucesso!");
         } catch (stockError) {
           console.error("⚠️ Erro ao adicionar ao estoque:", stockError);
-          console.warn(
-            "⚠️ Produto foi criado no catálogo, mas não foi adicionado ao estoque"
-          );
-
           alert(
-            `Produto "${produto.nome}" foi criado, mas não foi possível adicionar ao estoque "${produto.estoque}". Você pode adicionar manualmente depois.`
+            `Produto "${produto.nome}" foi criado, mas não foi possível adicionar ao estoque "${produto.estoque}".`
           );
         }
       }
@@ -356,58 +334,173 @@ export const api = {
     id: number,
     quantidade: number
   ): Promise<ProdutoFrontend> => {
-    console.log("🔢 Atualizando quantidade:", id, quantidade);
+    console.log("🔢 Atualizando quantidade via +/-:", id, quantidade);
 
-    const product = await request<ProductDTO>(`/products/${id}`);
+    const productDTO = await request<ProductDTO>(`/products/${id}`);
+    const stockItem = productDTO.stocks?.[0];
 
-    const updated = await request<ProductDTO>(`/products/${id}`, {
+    if (!stockItem) {
+      throw new Error(
+        "Produto não está vinculado a um estoque. Atualização de quantidade falhou."
+      );
+    }
+
+    const { stockId, minimumQuantity, stockName } = stockItem;
+    const stockStatus = quantidade > 0 ? "IN_STOCK" : "MISSING";
+    const newCatalogStatus = quantidade > 0 ? "ATIVO" : "INATIVO";
+
+    console.log(`📤 PUT /stocks/${stockId}/products (Atualizando QTD)`);
+    await request(`/stocks/${stockId}/products`, {
       method: "PUT",
       body: JSON.stringify({
-        ...product,
-        status: quantidade > 0 ? "ATIVO" : "INATIVO",
+        productId: id,
+        quantity: quantidade,
+        minimumQuantity: minimumQuantity || 1,
+        productStatus: stockStatus,
       }),
     });
 
+    if (newCatalogStatus !== productDTO.status) {
+      console.log(`📝 Atualizando status do produto para: ${newCatalogStatus}`);
+      await request(`/products/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: productDTO.name,
+          description: productDTO.description,
+          sku: productDTO.sku,
+          imageUrl: productDTO.imageUrl,
+          status: newCatalogStatus,
+        }),
+      });
+    }
+
     return {
-      id: updated.id,
-      nome: updated.name,
-      descricao: updated.description,
+      id: id,
+      nome: productDTO.name,
+      descricao: productDTO.description,
       quantidade: quantidade,
-      estoque: DEFAULT_STOCK_NAME,
-      imagem: updated.imageUrl,
-      status: updated.status,
+      estoque: stockName || DEFAULT_STOCK_NAME,
+      imagem: productDTO.imageUrl,
+      status: newCatalogStatus,
     };
   },
 
+  // ✅ CORRIGIDO: Agora suporta troca de estoque
   updateProduto: async (
     id: number,
-    produto: Partial<ProdutoFrontend>
+    produto: Partial<ProdutoFrontend>,
+    novoStockId: number,
+    novaQuantidade: number
   ): Promise<ProdutoFrontend> => {
-    console.log("✏️ Atualizando produto:", id);
+    console.log("🔍 DEBUG updateProduto:", {
+      produtoId: id,
+      produtoNome: produto.nome,
+      estoqueNome: produto.estoque,
+      novoStockId: novoStockId,
+      quantidade: novaQuantidade,
+    });
 
-    const updated = await request<ProductDTO>(`/products/${id}`, {
+    if (isNaN(id) || id <= 0 || isNaN(novoStockId) || novoStockId <= 0) {
+      throw new Error("ID de Produto ou Estoque inválido(s) para atualização.");
+    }
+
+    const newCatalogStatus = novaQuantidade > 0 ? "ATIVO" : "INATIVO";
+    const stockStatus = novaQuantidade > 0 ? "IN_STOCK" : "MISSING";
+
+    // PASSO 1: Buscar produto atual para verificar estoque antigo
+    console.log("📝 PASSO 1: Buscando dados atuais do produto...");
+    const productDTO = await request<ProductDTO>(`/products/${id}`);
+    const estoqueAntigo = productDTO.stocks?.[0];
+
+    // PASSO 2: Atualizar metadados do produto (nome, descrição, imagem, status)
+    console.log("📝 PASSO 2: Atualizando metadados do produto...");
+    const updatedProductDTO = await request<ProductDTO>(`/products/${id}`, {
       method: "PUT",
       body: JSON.stringify({
         name: produto.nome,
         description: produto.descricao,
         imageUrl: produto.imagem,
-        status: produto.status || "ATIVO",
+        status: newCatalogStatus,
       }),
     });
 
+    // PASSO 3: Verificar se houve mudança de estoque
+    const trocouEstoque =
+      estoqueAntigo && estoqueAntigo.stockId !== novoStockId;
+
+    if (trocouEstoque) {
+      console.log(`🔄 MUDANÇA DE ESTOQUE DETECTADA!`);
+      console.log(
+        `   Estoque antigo: ${estoqueAntigo?.stockName} (ID: ${estoqueAntigo?.stockId})`
+      );
+      console.log(`   Estoque novo: ${produto.estoque} (ID: ${novoStockId})`);
+
+      // PASSO 3.1: Remover do estoque antigo (zerar quantidade)
+      try {
+        console.log(
+          `📤 PUT /stocks/${estoqueAntigo.stockId}/products (Removendo do estoque antigo)`
+        );
+        await request(`/stocks/${estoqueAntigo.stockId}/products`, {
+          method: "PUT",
+          body: JSON.stringify({
+            productId: id,
+            quantity: 0,
+            minimumQuantity: estoqueAntigo.minimumQuantity || 1,
+            productStatus: "MISSING",
+          }),
+        });
+        console.log("✅ Produto removido do estoque antigo");
+      } catch (error) {
+        console.error("⚠️ Erro ao remover do estoque antigo:", error);
+      }
+
+      // PASSO 3.2: Adicionar ao novo estoque
+      console.log(
+        `📤 POST /stocks/${novoStockId}/products (Adicionando ao novo estoque)`
+      );
+      await request(`/stocks/${novoStockId}/products`, {
+        method: "POST",
+        body: JSON.stringify({
+          productId: id,
+          quantity: novaQuantidade,
+          minimumQuantity: 1,
+        }),
+      });
+      console.log("✅ Produto adicionado ao novo estoque");
+    } else {
+      // PASSO 4: Se NÃO trocou de estoque, apenas atualiza a quantidade
+      console.log(`📝 PASSO 3: Atualizando quantidade no mesmo estoque...`);
+      console.log(`📤 PUT /stocks/${novoStockId}/products (Atualizando QTD)`);
+
+      await request(`/stocks/${novoStockId}/products`, {
+        method: "PUT",
+        body: JSON.stringify({
+          productId: id,
+          quantity: novaQuantidade,
+          minimumQuantity: 1,
+          productStatus: stockStatus,
+        }),
+      });
+    }
+
+    console.log("✅ Produto e Estoque atualizados com sucesso.");
+
     return {
-      id: updated.id,
-      nome: updated.name,
-      descricao: updated.description,
-      quantidade: produto.quantidade || 0,
-      estoque: DEFAULT_STOCK_NAME,
-      imagem: updated.imageUrl,
-      status: updated.status,
+      id: id,
+      nome: updatedProductDTO.name,
+      descricao: updatedProductDTO.description,
+      quantidade: novaQuantidade,
+      estoque: produto.estoque || DEFAULT_STOCK_NAME,
+      imagem: updatedProductDTO.imageUrl,
+      status: updatedProductDTO.status,
     };
   },
 
   deleteProduto: async (id: number): Promise<void> => {
     console.log("🗑️ Deletando produto:", id);
+    if (isNaN(id) || id <= 0) {
+      throw new Error("ID de Produto inválido para exclusão.");
+    }
     await request<void>(`/products/${id}`, {
       method: "DELETE",
     });
@@ -415,7 +508,6 @@ export const api = {
 
   // ========== ESTOQUES ==========
 
-  // ✅ ATUALIZADO: Agora pega produtos de cada estoque
   getEstoques: async (): Promise<EstoqueFrontend[]> => {
     try {
       const stocks = await request<StockDTO[]>("/stocks");
@@ -466,9 +558,20 @@ export const api = {
     id: number,
     estoque: Partial<EstoqueFrontend>
   ): Promise<EstoqueFrontend> => {
-    console.log("✏️ Atualizando estoque:", id);
+    if (
+      id === undefined ||
+      id === null ||
+      isNaN(Number(id)) ||
+      Number(id) <= 0
+    ) {
+      console.error("❌ Erro de ID: ID do estoque é inválido ou indefinido.");
+      throw new Error("Não é possível atualizar: ID do estoque inválido.");
+    }
 
-    const updated = await request<StockDTO>(`/stocks/${id}`, {
+    const stockId = Number(id);
+    console.log(`✏️ Atualizando estoque ID: ${stockId}`);
+
+    const updated = await request<StockDTO>(`/stocks/${stockId}`, {
       method: "PUT",
       body: JSON.stringify({
         name: estoque.name,
@@ -486,6 +589,18 @@ export const api = {
   },
 
   deleteEstoque: async (id: number): Promise<void> => {
+    if (
+      id === undefined ||
+      id === null ||
+      isNaN(Number(id)) ||
+      Number(id) <= 0
+    ) {
+      console.error(
+        "❌ Erro de ID: ID do estoque para exclusão é inválido ou indefinido."
+      );
+      throw new Error("Não é possível deletar: ID do estoque inválido.");
+    }
+
     console.log("🗑️ Deletando estoque:", id);
     await request<void>(`/stocks/${id}`, {
       method: "DELETE",
