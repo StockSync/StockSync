@@ -69,13 +69,28 @@ const EstoqueCard = ({ estoque, onEdit, onDelete }: EstoqueCardProps) => {
     0
   );
 
+  // ✅ ADICIONE ESTA FUNÇÃO
+  const getImageUrl = (imageUrl?: string): string | undefined => {
+    if (!imageUrl) return undefined;
+
+    // Se já é uma URL completa, retorna como está
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      return imageUrl;
+    }
+
+    // Se é um caminho relativo, adiciona a base URL
+    const API_BASE_URL =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    return `${API_BASE_URL}${imageUrl}`;
+  };
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
           {estoque.image ? (
             <img
-              src={estoque.image}
+              src={getImageUrl(estoque.image)} // ✅ MUDANÇA AQUI
               alt={estoque.name}
               className="h-12 w-12 rounded-full object-cover"
             />
@@ -140,7 +155,6 @@ const EstoqueCard = ({ estoque, onEdit, onDelete }: EstoqueCardProps) => {
               Ver detalhes / Editar
             </Button>
           </DialogTrigger>
-          {/* Passando as props corretas para o UpsertEstoqueForm */}
           <UpsertEstoqueForm
             initialData={estoque}
             onSave={handleEditSave}

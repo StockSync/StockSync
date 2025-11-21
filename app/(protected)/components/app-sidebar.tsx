@@ -2,7 +2,8 @@
 
 import { Boxes, LayoutDashboard, LogOut, Package } from "lucide-react";
 import Image from "next/image";
-
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,9 +22,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar } from "@/components/ui/avatar";
-import { AvatarFallback } from "@radix-ui/react-avatar";
 import { usePathname } from "next/navigation";
+import api from "@/lib/api";
 
 // Menu items.
 const items = [
@@ -46,13 +46,54 @@ const items = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userInitial, setUserInitial] = useState(""); // ✅ Começa vazio
+  const [mounted, setMounted] = useState(false); // ✅ Controla se já carregou
+
+  // ✅ Pega a inicial apenas no cliente
+  useEffect(() => {
+    setMounted(true); // Marca que o componente montou no cliente
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setUserInitial("F");
+      return;
+    }
+
+    try {
+      const payload = token.split(".")[1];
+      const decoded = JSON.parse(atob(payload));
+      const email = decoded.sub || decoded.email || decoded.username;
+
+      if (email) {
+        setUserInitial(email.charAt(0).toUpperCase());
+      } else {
+        setUserInitial("F");
+      }
+    } catch (error) {
+      console.error("Erro ao decodificar token:", error);
+      setUserInitial("F");
+    }
+  }, []);
+
+  const handleLogout = () => {
+    console.log("🚪 Logout iniciado");
+    api.logout();
+    router.push("/authentication");
+    console.log("✅ Logout concluído");
+  };
+
+  // ✅ Não renderiza até carregar no cliente
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <Sidebar>
       <SidebarHeader className="flex justify-center items-center py-0 border-b">
         <Image src="/logo.svg" alt="StockSync" width={130} height={30} />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="border-b">
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -79,23 +120,20 @@ export default function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              {" "}
-              {/*fazer essa parte quando a pagina de login estiver pronta- aula min 26 */}
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg">
-                  <Avatar>
-                    <AvatarFallback>F</AvatarFallback>
-                  </Avatar>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-lg font-bold text-purple-600">
+                    {userInitial}
+                  </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
                   <LogOut />
                   Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>{" "}
-            {/*fazer essa parte quando a pagina de login estiver pronta */}
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

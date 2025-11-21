@@ -28,6 +28,7 @@ interface FormErrors {
   name?: string;
   location?: string;
   products?: string;
+  image?: string;
   productErrors?: { [key: number]: { name?: string; quantity?: string } };
 }
 
@@ -36,13 +37,12 @@ const UpsertEstoqueForm = ({
   onSave,
   initialData = null,
 }: UpsertEstoqueFormProps) => {
-  // ✅ NOVO: Lista de produtos cadastrados
   const [produtosCadastrados, setProdutosCadastrados] = useState<
     Array<{ id: number; nome: string }>
   >([]);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false); // ✅ NOVO
 
-  // Inicializar produtos baseado nos dados existentes ou novo produto vazio
   const [produtos, setProdutos] = useState(
     initialData?.products.map((p, index) => ({
       id: index + 1,
@@ -51,17 +51,19 @@ const UpsertEstoqueForm = ({
     })) || [{ id: 1, name: "", quantity: "" }]
   );
 
-  const [, setImagem] = useState<File | null>(null);
+  const [imagem, setImagem] = useState<File | null>(null); // ✅ AGORA USA O STATE
   const [imagemPreview, setImagemPreview] = useState<string | null>(
     initialData?.image || null
   );
+  const [imagemUrl, setImagemUrl] = useState<string | null>(
+    initialData?.image || null
+  ); // ✅ NOVO: URL final da imagem
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     location: initialData?.location || "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // ✅ NOVO: Buscar produtos cadastrados quando o modal abrir
   useEffect(() => {
     carregarProdutos();
   }, []);
@@ -79,15 +81,80 @@ const UpsertEstoqueForm = ({
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // ✅ NOVO: Função para fazer upload da imagem
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:8080/uploads/image", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao fazer upload da imagem");
+      }
+
+      const data = await response.json();
+      console.log("✅ Upload bem-sucedido:", data);
+      return data.imageUrl;
+    } catch (error) {
+      console.error("❌ Erro ao fazer upload:", error);
+      setErrors((prev) => ({
+        ...prev,
+        image: "Erro ao fazer upload da imagem. Tente novamente.",
+      }));
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validar tipo
+      if (!file.type.startsWith("image/")) {
+        setErrors((prev) => ({
+          ...prev,
+          image: "Arquivo deve ser uma imagem",
+        }));
+        return;
+      }
+
+      // Validar tamanho (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          image: "Imagem muito grande. Máximo 5MB",
+        }));
+        return;
+      }
+
       setImagem(file);
+      setErrors((prev) => ({ ...prev, image: undefined }));
+
+      // Preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagemPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+
+      // ✅ FAZER UPLOAD IMEDIATAMENTE
+      const uploadedUrl = await uploadImage(file);
+      if (uploadedUrl) {
+        setImagemUrl(uploadedUrl);
+        console.log("✅ URL da imagem salva:", uploadedUrl);
+      }
     }
   };
 
@@ -98,16 +165,34 @@ const UpsertEstoqueForm = ({
     fileInput?.click();
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
+      // Validar tamanho
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          image: "Imagem muito grande. Máximo 5MB",
+        }));
+        return;
+      }
+
       setImagem(file);
+      setErrors((prev) => ({ ...prev, image: undefined }));
+
+      // Preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagemPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+
+      // ✅ FAZER UPLOAD
+      const uploadedUrl = await uploadImage(file);
+      if (uploadedUrl) {
+        setImagemUrl(uploadedUrl);
+      }
     }
   };
 
@@ -128,7 +213,6 @@ const UpsertEstoqueForm = ({
     if (produtos.length > 1) {
       setProdutos(produtos.filter((produto) => produto.id !== id));
 
-      // Limpar erros do produto removido
       setErrors((prev) => ({
         ...prev,
         productErrors: prev.productErrors
@@ -149,7 +233,6 @@ const UpsertEstoqueForm = ({
       )
     );
 
-    // Limpar erro do campo quando usuário começar a digitar
     if (
       errors.productErrors?.[id]?.[
         campo as keyof (typeof errors.productErrors)[0]
@@ -172,28 +255,21 @@ const UpsertEstoqueForm = ({
     const newErrors: FormErrors = {};
     let hasErrors = false;
 
-    // Validar nome
     if (!formData.name.trim()) {
       newErrors.name = "Nome da unidade é obrigatório";
       hasErrors = true;
     }
 
-    // Validar local
     if (!formData.location.trim()) {
       newErrors.location = "Local é obrigatório";
       hasErrors = true;
     }
 
-    // ✅ ATUALIZADO: Produtos agora são opcionais
-    const produtosValidos = produtos.filter((p) => p.name.trim() && p.quantity);
-
-    // Validar cada produto individualmente (apenas os preenchidos)
     const productErrors: {
       [key: number]: { name?: string; quantity?: string };
     } = {};
 
     produtos.forEach((produto) => {
-      // Só valida se o usuário começou a preencher
       if (produto.name || produto.quantity) {
         const produtoErros: { name?: string; quantity?: string } = {};
 
@@ -228,20 +304,18 @@ const UpsertEstoqueForm = ({
       return;
     }
 
-    // Preparar dados para enviar (só produtos válidos)
     const produtosValidos = produtos.filter((p) => p.name.trim() && p.quantity);
     const estoqueData: EstoqueData = {
       id: initialData?.id || Date.now().toString(),
       name: formData.name,
       location: formData.location,
-      image: imagemPreview || undefined,
+      image: imagemUrl || undefined, // ✅ USA A URL DO UPLOAD
       products: produtosValidos.map((p) => ({
         name: p.name,
         quantity: parseInt(p.quantity) || 0,
       })),
     };
 
-    // Chamar a função de callback para salvar
     onSave?.(estoqueData);
   };
 
@@ -309,7 +383,7 @@ const UpsertEstoqueForm = ({
             )}
           </div>
 
-          {/* Imagem */}
+          {/* Imagem com Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Imagem (opcional)
@@ -320,14 +394,24 @@ const UpsertEstoqueForm = ({
               accept="image/*"
               onChange={handleFileChange}
               className="hidden"
+              disabled={uploadingImage}
             />
             <div
-              className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
-              onClick={handleImageClick}
-              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-md p-4 text-center transition-colors ${
+                uploadingImage
+                  ? "border-gray-200 bg-gray-50 cursor-not-allowed"
+                  : "border-gray-300 hover:border-gray-400 cursor-pointer"
+              } ${errors.image ? "border-red-500" : ""}`}
+              onClick={!uploadingImage ? handleImageClick : undefined}
+              onDrop={!uploadingImage ? handleDrop : undefined}
               onDragOver={handleDragOver}
             >
-              {imagemPreview ? (
+              {uploadingImage ? (
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-2"></div>
+                  <p className="text-xs text-gray-500">Fazendo upload...</p>
+                </div>
+              ) : imagemPreview ? (
                 <div className="flex flex-col items-center">
                   <img
                     src={imagemPreview}
@@ -345,9 +429,12 @@ const UpsertEstoqueForm = ({
                 </div>
               )}
             </div>
+            {errors.image && (
+              <p className="text-red-500 text-xs mt-1">{errors.image}</p>
+            )}
           </div>
 
-          {/* Produtos - AGORA COM DROPDOWN */}
+          {/* Produtos */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -371,7 +458,6 @@ const UpsertEstoqueForm = ({
                   <div key={produto.id} className="mb-3">
                     <div className="flex gap-2">
                       <div className="flex-[2]">
-                        {/* ✅ DROPDOWN em vez de input */}
                         <select
                           value={produto.name}
                           onChange={(e) =>
@@ -439,11 +525,6 @@ const UpsertEstoqueForm = ({
               </div>
             )}
 
-            {errors.products && (
-              <p className="text-red-500 text-xs mt-1">{errors.products}</p>
-            )}
-
-            {/* Botão Adicionar Produto */}
             <button
               type="button"
               onClick={adicionarProduto}
@@ -459,21 +540,27 @@ const UpsertEstoqueForm = ({
             </p>
           </div>
 
-          {/* Botões de Ação */}
+          {/* Botões */}
           <div className="flex gap-2 pt-4 justify-end">
             <button
               type="button"
               onClick={handleClose}
               className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+              disabled={uploadingImage}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-3 py-1.5 text-white rounded-md hover:opacity-90 text-sm"
+              className="px-3 py-1.5 text-white rounded-md hover:opacity-90 text-sm disabled:opacity-50"
               style={{ backgroundColor: "#421986" }}
+              disabled={uploadingImage}
             >
-              {initialData ? "Atualizar" : "Salvar"}
+              {uploadingImage
+                ? "Enviando..."
+                : initialData
+                ? "Atualizar"
+                : "Salvar"}
             </button>
           </div>
         </form>

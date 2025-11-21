@@ -16,10 +16,8 @@ import {
 import AddProdutoButton from "./components/add-produto-button";
 import ProdutosTable from "./components/produtos-table";
 import UpsertProdutoForm from "./components/upsert-produto-form";
-// Definição de tipo ProdutoData para ser consistente com o formulário
 import { api, ProdutoFrontend } from "@/lib/api";
 
-// 🔑 Interface de dados do formulário (compatível com UpsertProdutoForm)
 interface ProdutoData {
   id: number;
   nome: string;
@@ -69,19 +67,13 @@ const ProdutosPage = () => {
     }
   };
 
-  // Funções de manipulação (Add/Edit/Delete)
-
-  // Funções de Criação (handleSave, mas sem stockId, pois é criação)
   const handleAddProduto = async (novoProduto: ProdutoData) => {
     try {
-      // 📝 Para criação, não precisamos do stockId aqui, pois a API lida com o estoque pelo nome
-      const criado = await api.createProduto(novoProduto);
-
-      // Recarrega a lista para obter o ID real do produto e do estoque
+      await api.createProduto(novoProduto);
       await carregarProdutos();
-
-      alert(`Produto ${novoProduto.nome} criado com sucesso!`);
+      // ✅ Removido alert de sucesso
     } catch (err) {
+      // ❌ Mantém alert de erro
       alert(
         "Erro ao criar: " + (err instanceof Error ? err.message : String(err))
       );
@@ -90,11 +82,11 @@ const ProdutosPage = () => {
 
   const handleUpdateQuantidade = async (id: number, quantidade: number) => {
     try {
-      // ⚠️ Atenção: Esta função api.updateProdutoQuantidade deve ser revisada
-      // Ela não usa o ID do estoque, o que pode causar problemas se a API exigir.
       const atualizado = await api.updateProdutoQuantidade(id, quantidade);
       setProdutos(produtos.map((p) => (p.id === id ? atualizado : p)));
+      // ✅ Removido alert de sucesso
     } catch (err) {
+      // ❌ Mantém alert de erro
       alert(
         "Erro ao atualizar: " +
           (err instanceof Error ? err.message : String(err))
@@ -107,27 +99,21 @@ const ProdutosPage = () => {
     setIsEditModalOpen(true);
   };
 
-  // 🛑 CORREÇÃO CRÍTICA AQUI: Recebe o stockId e valida antes de chamar a API
   const handleSaveEditProduto = async (
     editado: ProdutoData,
     stockId?: number
   ) => {
     try {
-      // 1. Validação de ID do Produto e Estoque
       if (editado.id <= 0) {
         throw new Error("ID do Produto inválido para atualização.");
       }
 
       if (!stockId || stockId <= 0) {
-        // Se o stockId não veio (o que não deveria acontecer, pois o form valida), alertamos.
         throw new Error(
           "ID de Estoque inválido para atualização. Tente selecionar o estoque novamente."
         );
       }
 
-      // 2. Chamada da API com todos os dados
-      // Chamada para atualizar produto: idProduto, data, idEstoque, novaQuantidade
-      // O campo 'quantidade' vem dentro de 'editado'
       const atualizado = await api.updateProduto(
         editado.id,
         editado,
@@ -135,15 +121,13 @@ const ProdutosPage = () => {
         editado.quantidade
       );
 
-      // 3. Atualiza o estado local
       setProdutos(produtos.map((p) => (p.id === editado.id ? atualizado : p)));
       setIsEditModalOpen(false);
       setProdutoEditando(null);
-
-      alert(`Produto ${editado.nome} atualizado com sucesso!`);
+      // ✅ Removido alert de sucesso
     } catch (err) {
       console.error("Erro ao salvar edição:", err);
-      // Exibe a mensagem de erro que você estava vendo no pop-up do navegador
+      // ❌ Mantém alert de erro
       alert(
         "Erro ao atualizar: " +
           (err instanceof Error ? err.message : String(err))
@@ -157,15 +141,14 @@ const ProdutosPage = () => {
       setProdutos(produtos.filter((p) => p.id !== id));
       setIsEditModalOpen(false);
       setProdutoEditando(null);
-      alert("Produto excluído com sucesso!");
+      // ✅ Removido alert de sucesso
     } catch (err) {
+      // ❌ Mantém alert de erro
       alert(
         "Erro ao deletar: " + (err instanceof Error ? err.message : String(err))
       );
     }
   };
-
-  // Renderização de Estados (Loading, Error, Default)
 
   if (loading) {
     return (
@@ -194,7 +177,6 @@ const ProdutosPage = () => {
             <PageDescription>Erro ao carregar</PageDescription>
           </PageHeaderContent>
           <PageActions>
-            {/* Note: O AddProdutoButton está chamando handleAddProduto que espera ProdutoData, não um evento */}
             <AddProdutoButton
               onAddProduto={(data) => handleAddProduto(data as ProdutoData)}
             />
@@ -257,7 +239,6 @@ const ProdutosPage = () => {
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <UpsertProdutoForm
-          // 🛑 AQUI ESTÁ A CHAVE: onSave precisa de dois argumentos
           onSave={handleSaveEditProduto}
           onDelete={handleDeleteProduto}
           onClose={() => setIsEditModalOpen(false)}

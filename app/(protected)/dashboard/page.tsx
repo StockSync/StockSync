@@ -12,13 +12,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api, DashboardDTO } from "@/lib/api";
+import { api, ProductDTO } from "@/lib/api";
+
+interface DashboardData {
+  totalProducts: number;
+  activeProducts: number;
+  inactiveProducts: number;
+  products: ProductDTO[];
+}
 
 export default function Dashboard() {
   const router = useRouter();
-  const [dashboard, setDashboard] = useState<DashboardDTO | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<"TODOS" | "ATIVO" | "INATIVO">("TODOS"); // ✅ Estado do filtro
 
   useEffect(() => {
     carregarDados();
@@ -34,8 +42,40 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.getDashboard();
-      setDashboard(data);
+
+      // ✅ BUSCA DIRETO DO /products (QUE TEM STOCKS[])
+      const produtos = await api.getProdutos();
+
+      // Converte para ProductDTO (que tem stocks[])
+      const productsDTO: ProductDTO[] = produtos.map((p) => ({
+        id: p.id,
+        name: p.nome,
+        description: p.descricao,
+        imageUrl: p.imagem,
+        status: p.status,
+        stocks: [
+          {
+            stockId: 0,
+            stockName: p.estoque,
+            quantity: p.quantidade,
+            minimumQuantity: 1,
+          },
+        ],
+      }));
+
+      console.log("📦 Produtos carregados no Dashboard:", productsDTO);
+
+      // Calcula estatísticas
+      const activeCount = productsDTO.filter(
+        (p) => p.status === "ATIVO"
+      ).length;
+
+      setDashboard({
+        totalProducts: productsDTO.length,
+        activeProducts: activeCount,
+        inactiveProducts: productsDTO.length - activeCount,
+        products: productsDTO,
+      });
     } catch (err) {
       console.error("❌ Erro:", err);
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -95,6 +135,13 @@ export default function Dashboard() {
     return null;
   }
 
+  // ✅ FILTRA PRODUTOS BASEADO NO FILTRO SELECIONADO
+  const produtosFiltrados = dashboard.products.filter((produto) => {
+    if (filtro === "ATIVO") return produto.status === "ATIVO";
+    if (filtro === "INATIVO") return produto.status === "INATIVO";
+    return true; // "TODOS" mostra tudo
+  });
+
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
@@ -105,9 +152,17 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Cards */}
+        {/* Cards - AGORA CLICÁVEIS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <Card className="border border-gray-200 bg-white rounded-lg shadow-md">
+          {/* Card Total - CLICÁVEL */}
+          <Card
+            className={`border bg-white rounded-lg cursor-pointer transition-all ${
+              filtro === "TODOS"
+                ? "shadow-lg scale-[1.02] border-purple-300"
+                : "shadow-md border-gray-200 hover:shadow-lg"
+            }`}
+            onClick={() => setFiltro("TODOS")}
+          >
             <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -136,7 +191,15 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200 bg-white rounded-lg shadow-md">
+          {/* Card Ativos - CLICÁVEL */}
+          <Card
+            className={`border bg-white rounded-lg cursor-pointer transition-all ${
+              filtro === "ATIVO"
+                ? "shadow-lg scale-[1.02] border-green-300"
+                : "shadow-md border-gray-200 hover:shadow-lg"
+            }`}
+            onClick={() => setFiltro("ATIVO")}
+          >
             <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -154,7 +217,15 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border border-gray-200 bg-white rounded-lg shadow-md">
+          {/* Card Inativos - CLICÁVEL */}
+          <Card
+            className={`border bg-white rounded-lg cursor-pointer transition-all ${
+              filtro === "INATIVO"
+                ? "shadow-lg scale-[1.02] border-red-300"
+                : "shadow-md border-gray-200 hover:shadow-lg"
+            }`}
+            onClick={() => setFiltro("INATIVO")}
+          >
             <CardContent className="p-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -201,13 +272,20 @@ export default function Dashboard() {
               <div className="text-center py-8 text-gray-500">
                 <p>Nenhum produto cadastrado ainda.</p>
               </div>
+            ) : produtosFiltrados.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>
+                  Nenhum produto {filtro === "ATIVO" ? "ativo" : "inativo"}{" "}
+                  encontrado.
+                </p>
+              </div>
             ) : (
               <div className="rounded-lg overflow-hidden border border-gray-200">
                 <Table>
                   <TableHeader>
                     <TableRow style={{ backgroundColor: "#E2D8F3" }}>
                       <TableHead
-                        className="font-medium text-sm"
+                        className="font-medium text-sm w-[30%]"
                         style={{ color: "#411A85" }}
                       >
                         Produto
@@ -219,7 +297,7 @@ export default function Dashboard() {
                         Quantidade
                       </TableHead>
                       <TableHead
-                        className="font-medium text-sm text-center"
+                        className="font-medium text-sm text-center w-[30%]"
                         style={{ color: "#411A85" }}
                       >
                         Status
@@ -227,11 +305,14 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dashboard.products.slice(0, 8).map((produto) => {
-                      // ✅ CORREÇÃO: Pega a quantidade do primeiro estoque
+                    {produtosFiltrados.slice(0, 8).map((produto) => {
+                      // ✅ Pega quantidade do stocks[]
                       const quantidade = produto.stocks?.[0]?.quantity || 0;
-                      // ✅ CORREÇÃO: Status correto (ATIVO/INATIVO em português)
                       const isAtivo = produto.status === "ATIVO";
+
+                      console.log(
+                        `📊 ${produto.name}: quantidade = ${quantidade}`
+                      );
 
                       return (
                         <TableRow
@@ -241,7 +322,6 @@ export default function Dashboard() {
                           <TableCell className="font-normal text-sm text-gray-900">
                             {produto.name}
                           </TableCell>
-                          {/* ✅ CORREÇÃO: Mostra quantidade em vez de SKU */}
                           <TableCell className="text-center text-sm text-gray-900">
                             <span className="font-medium">{quantidade}</span>
                           </TableCell>

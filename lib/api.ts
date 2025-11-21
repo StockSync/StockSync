@@ -1,4 +1,4 @@
-// src/lib/api.ts - VERSÃO FINAL
+// src/lib/api.ts - VERSÃO FINAL ATUALIZADA
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const DEFAULT_STOCK_NAME = "Estoque Principal";
@@ -49,6 +49,7 @@ export interface StockDTO {
   stockId: number;
   name: string;
   location?: string;
+  imageUrl?: string;
   userId: number;
   products?: Array<{
     productId: number;
@@ -385,7 +386,7 @@ export const api = {
     };
   },
 
-  // ✅ CORRIGIDO: Agora suporta troca de estoque
+  // ✅ CORRIGIDO: Agora suporta troca de estoque com DELETE
   updateProduto: async (
     id: number,
     produto: Partial<ProdutoFrontend>,
@@ -407,10 +408,19 @@ export const api = {
     const newCatalogStatus = novaQuantidade > 0 ? "ATIVO" : "INATIVO";
     const stockStatus = novaQuantidade > 0 ? "IN_STOCK" : "MISSING";
 
-    // PASSO 1: Buscar produto atual para verificar estoque antigo
+    // PASSO 1: Buscar produto atual para verificar TODOS os estoques vinculados
     console.log("📝 PASSO 1: Buscando dados atuais do produto...");
     const productDTO = await request<ProductDTO>(`/products/${id}`);
-    const estoqueAntigo = productDTO.stocks?.[0];
+
+    // ✅ BUSCA TODOS OS ESTOQUES VINCULADOS (não só o primeiro)
+    const estoquesVinculados = productDTO.stocks || [];
+
+    console.log(
+      `📦 Produto encontrado com ${estoquesVinculados.length} estoque(s) vinculado(s):`
+    );
+    estoquesVinculados.forEach((s) => {
+      console.log(`   - ${s.stockName} (ID: ${s.stockId}, QTD: ${s.quantity})`);
+    });
 
     // PASSO 2: Atualizar metadados do produto (nome, descrição, imagem, status)
     console.log("📝 PASSO 2: Atualizando metadados do produto...");
@@ -425,33 +435,48 @@ export const api = {
     });
 
     // PASSO 3: Verificar se houve mudança de estoque
-    const trocouEstoque =
-      estoqueAntigo && estoqueAntigo.stockId !== novoStockId;
+    const estoqueAntigo = estoquesVinculados.find(
+      (s) => s.stockId !== novoStockId
+    );
+    const trocouEstoque = estoqueAntigo !== undefined;
 
-    if (trocouEstoque) {
+    if (trocouEstoque && estoqueAntigo) {
       console.log(`🔄 MUDANÇA DE ESTOQUE DETECTADA!`);
       console.log(
-        `   Estoque antigo: ${estoqueAntigo?.stockName} (ID: ${estoqueAntigo?.stockId})`
+        `   Estoque antigo: ${estoqueAntigo.stockName} (ID: ${estoqueAntigo.stockId})`
       );
       console.log(`   Estoque novo: ${produto.estoque} (ID: ${novoStockId})`);
 
-      // PASSO 3.1: Remover do estoque antigo (zerar quantidade)
+      // PASSO 3.1: Remover COMPLETAMENTE do estoque antigo usando DELETE
       try {
         console.log(
-          `📤 PUT /stocks/${estoqueAntigo.stockId}/products (Removendo do estoque antigo)`
+          `🗑️ DELETE /stocks/${estoqueAntigo.stockId}/products/${id}`
         );
-        await request(`/stocks/${estoqueAntigo.stockId}/products`, {
-          method: "PUT",
-          body: JSON.stringify({
-            productId: id,
-            quantity: 0,
-            minimumQuantity: estoqueAntigo.minimumQuantity || 1,
-            productStatus: "MISSING",
-          }),
+
+        await request(`/stocks/${estoqueAntigo.stockId}/products/${id}`, {
+          method: "DELETE",
         });
-        console.log("✅ Produto removido do estoque antigo");
+
+        console.log("✅ Produto removido completamente do estoque antigo");
       } catch (error) {
         console.error("⚠️ Erro ao remover do estoque antigo:", error);
+        console.log("⚠️ Tentando método alternativo (PUT com quantity: 0)...");
+
+        // Fallback: Se DELETE não funcionar, tenta zerar
+        try {
+          await request(`/stocks/${estoqueAntigo.stockId}/products`, {
+            method: "PUT",
+            body: JSON.stringify({
+              productId: id,
+              quantity: 0,
+              minimumQuantity: estoqueAntigo.minimumQuantity || 1,
+              productStatus: "MISSING",
+            }),
+          });
+          console.log("✅ Quantidade zerada no estoque antigo (fallback)");
+        } catch (fallbackError) {
+          console.error("❌ Ambos os métodos falharam:", fallbackError);
+        }
       }
 
       // PASSO 3.2: Adicionar ao novo estoque
@@ -516,6 +541,7 @@ export const api = {
         id: stock.stockId,
         name: stock.name,
         location: stock.location || "",
+        image: stock.imageUrl,
         products:
           stock.products?.map((p) => ({
             name: p.productName,
@@ -531,6 +557,7 @@ export const api = {
   createEstoque: async (estoque: {
     name: string;
     location: string;
+    image?: string;
     products: Array<{ name: string; quantity: number }>;
   }): Promise<EstoqueFrontend> => {
     console.log("➕ Criando estoque:", estoque);
@@ -540,6 +567,7 @@ export const api = {
       body: JSON.stringify({
         name: estoque.name,
         location: estoque.location,
+        imageUrl: estoque.image,
         products: [],
       }),
     });
@@ -550,6 +578,7 @@ export const api = {
       id: created.stockId,
       name: created.name,
       location: created.location || "",
+      image: created.imageUrl,
       products: [],
     };
   },
@@ -576,6 +605,7 @@ export const api = {
       body: JSON.stringify({
         name: estoque.name,
         location: estoque.location,
+        imageUrl: estoque.image,
         products: [],
       }),
     });
@@ -584,6 +614,7 @@ export const api = {
       id: updated.stockId,
       name: updated.name,
       location: updated.location || "",
+      image: updated.imageUrl,
       products: estoque.products || [],
     };
   },
