@@ -29,7 +29,7 @@ interface ProdutoData {
 
 interface UpsertProdutoFormProps {
   onClose?: () => void;
-  onSave?: (data: ProdutoData) => void;
+  onSave?: (data: ProdutoData, stockId?: number) => void;
   onDelete?: (id: string) => void;
   initialData?: ProdutoData | null;
 }
@@ -39,6 +39,7 @@ interface FormErrors {
   quantidade?: string;
   estoque?: string;
   observacao?: string;
+  imagem?: string;
 }
 
 const UpsertProdutoForm = ({
@@ -47,8 +48,10 @@ const UpsertProdutoForm = ({
   onDelete,
   initialData = null,
 }: UpsertProdutoFormProps) => {
-  const [, setImagem] = useState<File | null>(null);
+  const [imagem, setImagem] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+  const [imagemUrl, setImagemUrl] = useState<string | null>(null); // ✅ URL final da imagem
+  const [uploadingImage, setUploadingImage] = useState(false); // ✅ Loading do upload
   const [formData, setFormData] = useState({
     nome: "",
     quantidade: "",
@@ -57,18 +60,32 @@ const UpsertProdutoForm = ({
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // ✅ NOVO: Lista de estoques cadastrados
   const [estoques, setEstoques] = useState<Array<{ id: number; name: string }>>(
     []
   );
   const [loadingEstoques, setLoadingEstoques] = useState(false);
 
-  // ✅ NOVO: Buscar estoques quando o modal abrir
+  // ✅ FUNÇÃO HELPER PARA URLs
+  const getImageUrl = (imageUrl?: string): string | undefined => {
+    if (!imageUrl) return undefined;
+
+    if (imageUrl.startsWith("blob:") || imageUrl.startsWith("data:")) {
+      return imageUrl;
+    }
+
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      return imageUrl;
+    }
+
+    const API_BASE_URL =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    return `${API_BASE_URL}${imageUrl}`;
+  };
+
   useEffect(() => {
     carregarEstoques();
   }, []);
 
-  // useEffect para atualizar o formulário quando initialData mudar
   useEffect(() => {
     if (initialData) {
       console.log("Carregando dados para edição:", initialData);
@@ -79,6 +96,7 @@ const UpsertProdutoForm = ({
         observacao: initialData.observacao || "",
       });
       setImagemPreview(initialData.imagem || null);
+      setImagemUrl(initialData.imagem || null);
       setErrors({});
     } else {
       console.log("Novo produto - formulário vazio");
@@ -89,6 +107,7 @@ const UpsertProdutoForm = ({
         observacao: "",
       });
       setImagemPreview(null);
+      setImagemUrl(null);
       setErrors({});
     }
   }, [initialData]);
@@ -106,15 +125,80 @@ const UpsertProdutoForm = ({
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // ✅ FUNÇÃO DE UPLOAD
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:8080/uploads/image", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao fazer upload da imagem");
+      }
+
+      const data = await response.json();
+      console.log("✅ Upload bem-sucedido:", data);
+      return data.imageUrl;
+    } catch (error) {
+      console.error("❌ Erro ao fazer upload:", error);
+      setErrors((prev) => ({
+        ...prev,
+        imagem: "Erro ao fazer upload da imagem. Tente novamente.",
+      }));
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validar tipo
+      if (!file.type.startsWith("image/")) {
+        setErrors((prev) => ({
+          ...prev,
+          imagem: "Arquivo deve ser uma imagem",
+        }));
+        return;
+      }
+
+      // Validar tamanho (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          imagem: "Imagem muito grande. Máximo 5MB",
+        }));
+        return;
+      }
+
       setImagem(file);
+      setErrors((prev) => ({ ...prev, imagem: undefined }));
+
+      // Preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagemPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+
+      // ✅ FAZER UPLOAD IMEDIATAMENTE
+      const uploadedUrl = await uploadImage(file);
+      if (uploadedUrl) {
+        setImagemUrl(uploadedUrl);
+        console.log("✅ URL da imagem salva:", uploadedUrl);
+      }
     }
   };
 
@@ -125,16 +209,34 @@ const UpsertProdutoForm = ({
     fileInput?.click();
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
+      // Validar tamanho
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          imagem: "Imagem muito grande. Máximo 5MB",
+        }));
+        return;
+      }
+
       setImagem(file);
+      setErrors((prev) => ({ ...prev, imagem: undefined }));
+
+      // Preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagemPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+
+      // ✅ FAZER UPLOAD
+      const uploadedUrl = await uploadImage(file);
+      if (uploadedUrl) {
+        setImagemUrl(uploadedUrl);
+      }
     }
   };
 
@@ -170,11 +272,9 @@ const UpsertProdutoForm = ({
       return;
     }
 
-    // ✅ CORREÇÃO: Busca o ID do estoque pelo NOME SELECIONADO
     const targetStock = estoques.find((s) => s.name === formData.estoque);
     const stockId = targetStock?.id;
 
-    // Validação: Se não encontrou o estoque
     if (!stockId || stockId <= 0) {
       alert(
         "Erro: O estoque selecionado não foi encontrado. Tente selecionar novamente."
@@ -187,7 +287,7 @@ const UpsertProdutoForm = ({
       nome: formData.nome,
       quantidade: parseInt(formData.quantidade) || 0,
       estoque: formData.estoque,
-      imagem: imagemPreview || undefined,
+      imagem: imagemUrl || undefined, // ✅ USA A URL DO UPLOAD
       observacao: formData.observacao || undefined,
     };
 
@@ -197,7 +297,6 @@ const UpsertProdutoForm = ({
       estoqueNome: formData.estoque,
     });
 
-    // ✅ Passa o stockId NOVO para o componente pai
     onSave?.(produtoData, stockId);
     handleClose();
   };
@@ -271,7 +370,7 @@ const UpsertProdutoForm = ({
             )}
           </div>
 
-          {/* Estoque - AGORA COM DROPDOWN */}
+          {/* Estoque */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Estoque
@@ -327,17 +426,27 @@ const UpsertProdutoForm = ({
               accept="image/*"
               onChange={handleFileChange}
               className="hidden"
+              disabled={uploadingImage}
             />
             <div
-              className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
-              onClick={handleImageClick}
-              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-md p-4 text-center transition-colors ${
+                uploadingImage
+                  ? "border-gray-200 bg-gray-50 cursor-not-allowed"
+                  : "border-gray-300 hover:border-gray-400 cursor-pointer"
+              } ${errors.imagem ? "border-red-500" : ""}`}
+              onClick={!uploadingImage ? handleImageClick : undefined}
+              onDrop={!uploadingImage ? handleDrop : undefined}
               onDragOver={handleDragOver}
             >
-              {imagemPreview ? (
+              {uploadingImage ? (
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-2"></div>
+                  <p className="text-xs text-gray-500">Fazendo upload...</p>
+                </div>
+              ) : imagemPreview ? (
                 <div className="flex flex-col items-center">
                   <img
-                    src={imagemPreview}
+                    src={getImageUrl(imagemPreview)} // ✅ USA A FUNÇÃO HELPER
                     alt="Preview"
                     className="w-20 h-20 object-cover rounded mb-2"
                   />
@@ -352,6 +461,9 @@ const UpsertProdutoForm = ({
                 </div>
               )}
             </div>
+            {errors.imagem && (
+              <p className="text-red-500 text-xs mt-1">{errors.imagem}</p>
+            )}
           </div>
 
           {/* Observação */}
@@ -370,7 +482,6 @@ const UpsertProdutoForm = ({
 
           {/* Botões de Ação */}
           <div className="flex gap-2 pt-4">
-            {/* Botão de Delete - apenas para edição */}
             {initialData && onDelete && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -405,22 +516,27 @@ const UpsertProdutoForm = ({
               </AlertDialog>
             )}
 
-            {/* Botões de Cancelar e Salvar */}
             <div className="flex gap-2 ml-auto">
               <button
                 type="button"
                 onClick={handleClose}
                 className="px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                disabled={uploadingImage}
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="px-3 py-1.5 text-white rounded-md hover:opacity-90 text-sm"
+                className="px-3 py-1.5 text-white rounded-md hover:opacity-90 text-sm disabled:opacity-50"
                 style={{ backgroundColor: "#421986" }}
+                disabled={uploadingImage}
               >
-                {initialData ? "Atualizar" : "Salvar"}
+                {uploadingImage
+                  ? "Enviando..."
+                  : initialData
+                  ? "Atualizar"
+                  : "Salvar"}
               </button>
             </div>
           </div>

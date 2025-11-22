@@ -4,7 +4,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { Plus, X, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface EstoqueData {
@@ -27,9 +27,7 @@ interface UpsertEstoqueFormProps {
 interface FormErrors {
   name?: string;
   location?: string;
-  products?: string;
   image?: string;
-  productErrors?: { [key: number]: { name?: string; quantity?: string } };
 }
 
 const UpsertEstoqueForm = ({
@@ -37,51 +35,37 @@ const UpsertEstoqueForm = ({
   onSave,
   initialData = null,
 }: UpsertEstoqueFormProps) => {
-  const [produtosCadastrados, setProdutosCadastrados] = useState<
-    Array<{ id: number; nome: string }>
-  >([]);
-  const [loadingProdutos, setLoadingProdutos] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false); // ✅ NOVO
-
-  const [produtos, setProdutos] = useState(
-    initialData?.products.map((p, index) => ({
-      id: index + 1,
-      name: p.name,
-      quantity: p.quantity.toString(),
-    })) || [{ id: 1, name: "", quantity: "" }]
-  );
-
-  const [imagem, setImagem] = useState<File | null>(null); // ✅ AGORA USA O STATE
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagem, setImagem] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(
     initialData?.image || null
   );
   const [imagemUrl, setImagemUrl] = useState<string | null>(
     initialData?.image || null
-  ); // ✅ NOVO: URL final da imagem
+  );
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     location: initialData?.location || "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  useEffect(() => {
-    carregarProdutos();
-  }, []);
+  // ✅ FUNÇÃO HELPER PARA URLs
+  const getImageUrl = (imageUrl?: string): string | undefined => {
+    if (!imageUrl) return undefined;
 
-  const carregarProdutos = async () => {
-    try {
-      setLoadingProdutos(true);
-      const data = await api.getProdutos();
-      setProdutosCadastrados(data);
-      console.log("✅ Produtos carregados:", data);
-    } catch (error) {
-      console.error("❌ Erro ao carregar produtos:", error);
-    } finally {
-      setLoadingProdutos(false);
+    if (imageUrl.startsWith("blob:") || imageUrl.startsWith("data:")) {
+      return imageUrl;
     }
+
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      return imageUrl;
+    }
+
+    const API_BASE_URL =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    return `${API_BASE_URL}${imageUrl}`;
   };
 
-  // ✅ NOVO: Função para fazer upload da imagem
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
       setUploadingImage(true);
@@ -121,7 +105,6 @@ const UpsertEstoqueForm = ({
   ) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validar tipo
       if (!file.type.startsWith("image/")) {
         setErrors((prev) => ({
           ...prev,
@@ -130,7 +113,6 @@ const UpsertEstoqueForm = ({
         return;
       }
 
-      // Validar tamanho (5MB)
       if (file.size > 5 * 1024 * 1024) {
         setErrors((prev) => ({
           ...prev,
@@ -142,14 +124,12 @@ const UpsertEstoqueForm = ({
       setImagem(file);
       setErrors((prev) => ({ ...prev, image: undefined }));
 
-      // Preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagemPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
 
-      // ✅ FAZER UPLOAD IMEDIATAMENTE
       const uploadedUrl = await uploadImage(file);
       if (uploadedUrl) {
         setImagemUrl(uploadedUrl);
@@ -169,7 +149,6 @@ const UpsertEstoqueForm = ({
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
-      // Validar tamanho
       if (file.size > 5 * 1024 * 1024) {
         setErrors((prev) => ({
           ...prev,
@@ -181,14 +160,12 @@ const UpsertEstoqueForm = ({
       setImagem(file);
       setErrors((prev) => ({ ...prev, image: undefined }));
 
-      // Preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagemPreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
 
-      // ✅ FAZER UPLOAD
       const uploadedUrl = await uploadImage(file);
       if (uploadedUrl) {
         setImagemUrl(uploadedUrl);
@@ -198,57 +175,6 @@ const UpsertEstoqueForm = ({
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-  };
-
-  const adicionarProduto = () => {
-    const novoProduto = {
-      id: Date.now(),
-      name: "",
-      quantity: "",
-    };
-    setProdutos([...produtos, novoProduto]);
-  };
-
-  const removerProduto = (id: number) => {
-    if (produtos.length > 1) {
-      setProdutos(produtos.filter((produto) => produto.id !== id));
-
-      setErrors((prev) => ({
-        ...prev,
-        productErrors: prev.productErrors
-          ? Object.fromEntries(
-              Object.entries(prev.productErrors).filter(
-                ([key]) => parseInt(key) !== id
-              )
-            )
-          : {},
-      }));
-    }
-  };
-
-  const atualizarProduto = (id: number, campo: string, valor: string) => {
-    setProdutos(
-      produtos.map((produto) =>
-        produto.id === id ? { ...produto, [campo]: valor } : produto
-      )
-    );
-
-    if (
-      errors.productErrors?.[id]?.[
-        campo as keyof (typeof errors.productErrors)[0]
-      ]
-    ) {
-      setErrors((prev) => ({
-        ...prev,
-        productErrors: {
-          ...prev.productErrors,
-          [id]: {
-            ...prev.productErrors?.[id],
-            [campo]: undefined,
-          },
-        },
-      }));
-    }
   };
 
   const validateForm = (): boolean => {
@@ -265,34 +191,6 @@ const UpsertEstoqueForm = ({
       hasErrors = true;
     }
 
-    const productErrors: {
-      [key: number]: { name?: string; quantity?: string };
-    } = {};
-
-    produtos.forEach((produto) => {
-      if (produto.name || produto.quantity) {
-        const produtoErros: { name?: string; quantity?: string } = {};
-
-        if (!produto.name.trim()) {
-          produtoErros.name = "Selecione um produto";
-          hasErrors = true;
-        }
-
-        if (!produto.quantity || parseInt(produto.quantity) <= 0) {
-          produtoErros.quantity = "Quantidade deve ser maior que 0";
-          hasErrors = true;
-        }
-
-        if (produtoErros.name || produtoErros.quantity) {
-          productErrors[produto.id] = produtoErros;
-        }
-      }
-    });
-
-    if (Object.keys(productErrors).length > 0) {
-      newErrors.productErrors = productErrors;
-    }
-
     setErrors(newErrors);
     return !hasErrors;
   };
@@ -304,16 +202,12 @@ const UpsertEstoqueForm = ({
       return;
     }
 
-    const produtosValidos = produtos.filter((p) => p.name.trim() && p.quantity);
     const estoqueData: EstoqueData = {
       id: initialData?.id || Date.now().toString(),
       name: formData.name,
       location: formData.location,
-      image: imagemUrl || undefined, // ✅ USA A URL DO UPLOAD
-      products: produtosValidos.map((p) => ({
-        name: p.name,
-        quantity: parseInt(p.quantity) || 0,
-      })),
+      image: imagemUrl || undefined,
+      products: initialData?.products || [],
     };
 
     onSave?.(estoqueData);
@@ -414,7 +308,7 @@ const UpsertEstoqueForm = ({
               ) : imagemPreview ? (
                 <div className="flex flex-col items-center">
                   <img
-                    src={imagemPreview}
+                    src={getImageUrl(imagemPreview)}
                     alt="Preview"
                     className="w-20 h-20 object-cover rounded mb-2"
                   />
@@ -434,111 +328,37 @@ const UpsertEstoqueForm = ({
             )}
           </div>
 
-          {/* Produtos */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Produtos (opcional)
+          {/* ✅ PRODUTOS - APENAS VISUALIZAÇÃO COM SCROLL (MAX 3 VISÍVEIS) */}
+          {initialData && initialData.products.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Produtos (apenas visualização)
               </label>
-              <span
-                className="text-sm font-medium text-gray-700"
-                style={{ marginRight: produtos.length > 1 ? "48px" : "25px" }}
+              <div
+                className="bg-gray-50 rounded-md p-3 space-y-2 overflow-y-auto"
+                style={{
+                  maxHeight: "156px",
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "#421986 #f3f4f6",
+                }}
               >
-                Quantidade
-              </span>
-            </div>
-
-            {loadingProdutos ? (
-              <div className="text-center py-4 text-sm text-gray-500">
-                Carregando produtos...
-              </div>
-            ) : (
-              <div className="max-h-60 overflow-y-auto">
-                {produtos.map((produto, index) => (
-                  <div key={produto.id} className="mb-3">
-                    <div className="flex gap-2">
-                      <div className="flex-[2]">
-                        <select
-                          value={produto.name}
-                          onChange={(e) =>
-                            atualizarProduto(produto.id, "name", e.target.value)
-                          }
-                          className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
-                            errors.productErrors?.[produto.id]?.name
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                        >
-                          <option value="">Selecione um produto</option>
-                          {produtosCadastrados.map((p) => (
-                            <option key={p.id} value={p.nome}>
-                              {p.nome}
-                            </option>
-                          ))}
-                        </select>
-                        {errors.productErrors?.[produto.id]?.name && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.productErrors[produto.id].name}
-                          </p>
-                        )}
-                      </div>
-                      <div className="w-25">
-                        <input
-                          type="number"
-                          placeholder="Ex: 5"
-                          min="1"
-                          value={produto.quantity}
-                          onChange={(e) =>
-                            atualizarProduto(
-                              produto.id,
-                              "quantity",
-                              e.target.value
-                            )
-                          }
-                          className={`w-full px-3 py-2 border rounded-md text-sm focus:border-transparent ${
-                            errors.productErrors?.[produto.id]?.quantity
-                              ? "border-red-500"
-                              : "border-gray-300"
-                          }`}
-                        />
-                        {errors.productErrors?.[produto.id]?.quantity && (
-                          <p className="text-red-500 text-xs mt-1">
-                            {errors.productErrors[produto.id].quantity}
-                          </p>
-                        )}
-                      </div>
-                      {produtos.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removerProduto(produto.id)}
-                          className="px-2 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                    {index < produtos.length - 1 && (
-                      <div className="border-b border-gray-100 my-2"></div>
-                    )}
+                {initialData.products.map((produto, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-200"
+                  >
+                    <span className="text-gray-700 font-medium">
+                      {produto.name}
+                    </span>
+                    <span className="text-gray-500">{produto.quantity}x</span>
                   </div>
                 ))}
               </div>
-            )}
-
-            <button
-              type="button"
-              onClick={adicionarProduto}
-              disabled={loadingProdutos}
-              className="flex items-center gap-2 px-3 py-1.5 text-white rounded-md text-sm hover:opacity-90 transition-opacity mt-2 disabled:opacity-50"
-              style={{ backgroundColor: "#421986" }}
-            >
-              <Plus size={14} />
-              Adicionar Produto
-            </button>
-            <p className="text-xs text-gray-500 mt-1">
-              Você pode adicionar produtos depois de criar o estoque
-            </p>
-          </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Para adicionar ou remover produtos, vá até a página de Produtos
+              </p>
+            </div>
+          )}
 
           {/* Botões */}
           <div className="flex gap-2 pt-4 justify-end">
