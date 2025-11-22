@@ -3,7 +3,6 @@ package com.stocksync.backend.repository;
 import com.stocksync.backend.model.Stock;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query; // ⬅️ Não esqueça o import
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,11 +11,9 @@ import java.util.Optional;
 @Repository
 public interface StockRepository extends JpaRepository<Stock, Long> {
 
-    // Mantido OK
     @EntityGraph(attributePaths = {"user", "products", "products.product"})
     List<Stock> findByUserId(Long userId);
 
-    // 🔑 CORRIGIDO: Trocar s.stockProducts por s.products
-    @Query("SELECT s FROM Stock s LEFT JOIN FETCH s.products sp LEFT JOIN FETCH sp.product WHERE s.id = :stockId")
+    @EntityGraph(attributePaths = {"products", "products.product"})
     Optional<Stock> findByIdFetchingProducts(Long stockId);
 }

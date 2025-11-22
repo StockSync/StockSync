@@ -7,7 +7,7 @@ import com.stocksync.backend.model.StockProductId;
 import com.stocksync.backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import java.util.Optional;
+
 import java.util.List;
 
 @Repository
@@ -17,5 +17,4 @@ public interface StockProductRepository extends JpaRepository<StockProduct, Stoc
     boolean existsByProductAndQuantityGreaterThan(Product product, Long quantity);
 
     List<StockProduct> findByStockUser(User user);
-    Optional<StockProduct> findByStockIdAndProductId(Long stockId, Long productId);
 }

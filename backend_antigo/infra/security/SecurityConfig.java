@@ -41,13 +41,16 @@ public class SecurityConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .cors(withDefaults())
+                .cors(withDefaults()) // LINHA 1: Diz ao Spring para USAR o Bean 'corsConfigurationSource'
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                        // 💡 CORREÇÃO: Libera TODAS as rotas sob /api/auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll() // ✅ ADICIONADO
+                        // Remover a liberação TEMPORÁRIA se não for mais necessária
                         .requestMatchers(HttpMethod.GET, "/dashboard").permitAll()
+
+                        // Protege todo o resto:
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class)
@@ -58,19 +61,20 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ✅ ATUALIZADO para incluir Next.js e Vite
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://localhost:5174"
-        ));
+        // Define a origem permitida (seu frontend)
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
 
+        // Define os métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        // Define os cabeçalhos permitidos
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+
+        // LINHA NOVA: Permite o envio de credenciais (como cookies ou tokens de autorização)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", configuration); // Aplica esta configuração a TODAS as rotas
         return source;
     }
 
@@ -84,3 +88,4 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 }
+

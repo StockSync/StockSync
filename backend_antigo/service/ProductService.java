@@ -2,7 +2,6 @@ package com.stocksync.backend.service;
 
 import com.stocksync.backend.dto.ProductDTO;
 import com.stocksync.backend.dto.ProductRequestDTO;
-import com.stocksync.backend.dto.StockProductLinkDTO;
 import com.stocksync.backend.exception.BusinessRuleException;
 import com.stocksync.backend.exception.ResourceNotFoundException;
 import com.stocksync.backend.mapper.ProductMapper;
@@ -22,49 +21,35 @@ public class ProductService {
     private final StockProductRepository stockProductRepository;
     private final ProductMapper productMapper;
 
-    // 🔑 CONSTRUTOR CORRIGIDO: Garante que o Spring injete as dependências
-    public ProductService(
-            ProductRepository productRepository,
-            StockProductRepository stockProductRepository,
-            ProductMapper productMapper
-    ) {
+    public ProductService(ProductRepository productRepository, StockProductRepository stockProductRepository, ProductMapper productMapper) {
         this.productRepository = productRepository;
         this.stockProductRepository = stockProductRepository;
         this.productMapper = productMapper;
     }
 
-    // LISTAGEM DE PRODUTOS (RF3.2)
     @Transactional(readOnly = true)
     public List<ProductDTO> getAllProducts(String searchTerm) {
         List<Product> products;
-
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            // Se houver termo de busca, usa a busca simples
             products = productRepository.findByNameContainingIgnoreCaseOrSkuContainingIgnoreCase(searchTerm, searchTerm);
         } else {
-            // Busca todos e traz o estoque vinculado usando o método customizado
-            products = productRepository.retrieveAllProductsWithStockDetails(); // ⬅️ CHAMADA ATUALIZADA
+            products = productRepository.findAll();
         }
-
-        // Mapeia para o novo DTO que inclui os stocks
         return products.stream()
-                .map(this::mapProductToDTOWithStocks)
+                .map(productMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // BUSCA POR ID (RF3.2)
     @Transactional(readOnly = true)
     public ProductDTO getProductById(Long productId) {
-        // Usa o método customizado que traz os stocks via JOIN
-        Product product = productRepository.queryProductById(productId) // ⬅️ CHAMADA ATUALIZADA
+        Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado com o ID: " + productId));
-
-        return mapProductToDTOWithStocks(product);
+        return productMapper.toDTO(product);
     }
 
-    // CRIAÇÃO DE PRODUTO (RF3.1)
     @Transactional
     public ProductDTO createProduct(ProductRequestDTO productRequestDTO) {
+        // RF3.1.2: Validação de SKU único global
         if (productRequestDTO.sku() != null && !productRequestDTO.sku().isEmpty()) {
             productRepository.findBySku(productRequestDTO.sku()).ifPresent(p -> {
                 throw new BusinessRuleException("SKU '" + productRequestDTO.sku() + "' já existe no catálogo.");
@@ -82,12 +67,12 @@ public class ProductService {
         return productMapper.toDTO(savedProduct);
     }
 
-    // ATUALIZAÇÃO DE PRODUTO (RF3.3)
     @Transactional
     public ProductDTO updateProduct(Long productId, ProductRequestDTO productRequestDTO) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado com o ID: " + productId));
 
+        // Validação de SKU único (ignorando o próprio produto)
         if (productRequestDTO.sku() != null && !productRequestDTO.sku().isEmpty()) {
             productRepository.findBySku(productRequestDTO.sku()).ifPresent(existingProduct -> {
                 if (!existingProduct.getId().equals(productId)) {
@@ -106,45 +91,17 @@ public class ProductService {
         return productMapper.toDTO(updatedProduct);
     }
 
-    // DELEÇÃO DE PRODUTO (RF3.4)
     @Transactional
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado com o ID: " + productId));
 
-        // RF3.4.2: Regra de Negócio Crítica: não pode remover se tiver quantidade em estoque
+        // RF3.4.2: Regra de Negócio Crítica (esta regra continua perfeita)
         boolean inStock = stockProductRepository.existsByProductAndQuantityGreaterThan(product, 0L);
         if (inStock) {
             throw new BusinessRuleException("Não é possível remover o produto, pois ele está associado a um estoque com quantidade maior que zero.");
         }
 
         productRepository.delete(product);
-    }
-
-    // MÉTODO DE MAPEAMENTO: Mapeia a Entidade Product (com Stocks carregados) para o ProductDTO
-    private ProductDTO mapProductToDTOWithStocks(Product product) {
-        // 1. Mapeia a lista de StockProduct (vínculo) para a lista de StockProductLinkDTO
-        List<StockProductLinkDTO> stocksDto = product.getStocks().stream()
-                .map(sp -> new StockProductLinkDTO(
-                        sp.getStock().getId(),
-                        sp.getStock().getName(),
-                        sp.getQuantity(),
-                        sp.getMinimumQuantity()
-                ))
-                .collect(Collectors.toList());
-
-        // 2. Mapeia os dados básicos do produto (usando o ProductMapper existente para reuso)
-        ProductDTO baseDto = productMapper.toDTO(product);
-
-        // 3. Retorna o novo DTO, incluindo a lista de estoques
-        return new ProductDTO(
-                baseDto.id(),
-                baseDto.name(),
-                baseDto.description(),
-                baseDto.sku(),
-                baseDto.imageUrl(),
-                baseDto.status(),
-                stocksDto
-        );
     }
 }

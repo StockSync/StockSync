@@ -4,14 +4,13 @@ import com.stocksync.backend.dto.StockDTO;
 import com.stocksync.backend.dto.StockProductDTO;
 import com.stocksync.backend.dto.StockProductResponseDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
-import com.stocksync.backend.dto.StockProductUpdateDTO;
 import com.stocksync.backend.exception.BusinessRuleException;
 import com.stocksync.backend.exception.ResourceNotFoundException;
 import com.stocksync.backend.model.*;
 import com.stocksync.backend.model.enuns.ProductStatus;
 import com.stocksync.backend.repository.ProductRepository;
 import com.stocksync.backend.repository.StockRepository;
-import com.stocksync.backend.repository.StockProductRepository;
+import com.stocksync.backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,28 +19,27 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.Optional;
 
 @Service
 public class StockService {
 
     private final ProductRepository productRepository;
     private final StockRepository stockRepository;
-    private final StockProductRepository stockProductRepository;
 
-    public StockService(ProductRepository productRepository, StockRepository stockRepository, StockProductRepository stockProductRepository) {
+
+    public StockService(ProductRepository productRepository, StockRepository stockRepository) {
         this.productRepository = productRepository;
         this.stockRepository = stockRepository;
-        this.stockProductRepository = stockProductRepository;
     }
 
     // Listar todos os estoques de um usuário (RF2.2)
     @Transactional(readOnly = true)
+    // 1. MODIFICAR o tipo de retorno
     public List<StockProductResponseDTO> getAllStocksByUser(Long userId) {
         List<Stock> stocks = stockRepository.findByUserId(userId);
 
         return stocks.stream()
-                .map(StockProductResponseDTO::new)
+                .map(StockProductResponseDTO::new) // Mapeia para o novo DTO
                 .collect(Collectors.toList());
     }
 
@@ -59,7 +57,6 @@ public class StockService {
         Stock stock = new Stock();
         stock.setName(stockRequestDTO.name());
         stock.setLocation(stockRequestDTO.location());
-        stock.setImageUrl(stockRequestDTO.imageUrl()); // ✅ ADICIONADO
         stock.setCreationDate(LocalDate.now());
         stock.setUser(user);
 
@@ -75,7 +72,7 @@ public class StockService {
                         stock,
                         productDTO.quantity(),
                         productDTO.minimumQuantity(),
-                        ProductStatus.IN_STOCK
+                        ProductStatus.IN_STOCK // ou um status padrão
                 );
                 stockProducts.add(stockProduct);
             }
@@ -117,7 +114,7 @@ public class StockService {
                 stock,
                 productDTO.quantity(),
                 productDTO.minimumQuantity(),
-                ProductStatus.IN_STOCK
+                ProductStatus.IN_STOCK // Define um status padrão ao adicionar
         );
 
         // 6. Adicionar ao set e salvar (o CascadeType.ALL salvará o novo StockProduct)
@@ -128,29 +125,6 @@ public class StockService {
         return convertToDTO(savedStock);
     }
 
-    // Atualizar a quantidade e o status de um produto em um estoque
-    @Transactional
-    public StockProduct updateStockProduct(Long stockId, StockProductUpdateDTO updateDTO) {
-
-        // 1. Busca a associação StockProduct usando os IDs
-        Optional<StockProduct> optionalStockProduct = stockProductRepository
-                .findByStockIdAndProductId(stockId, updateDTO.getProductId());
-
-        if (optionalStockProduct.isEmpty()) {
-            throw new ResourceNotFoundException("Item de estoque não encontrado. IDs: Stock " + stockId + ", Product " + updateDTO.getProductId());
-        }
-
-        StockProduct stockProduct = optionalStockProduct.get();
-
-        // 2. Atualiza os dados (Quantidade, Mínimo e Status)
-        stockProduct.setQuantity(updateDTO.getQuantity());
-        stockProduct.setMinimumQuantity(updateDTO.getMinimumQuantity());
-        stockProduct.setProductStatus(updateDTO.getProductStatus());
-
-        // 3. Salva a entidade atualizada
-        return stockProductRepository.save(stockProduct);
-    }
-
     // Atualizar um estoque
     @Transactional
     public StockDTO updateStock(Long stockId, StockRequestDTO stockRequestDTO) {
@@ -159,12 +133,10 @@ public class StockService {
 
         stock.setName(stockRequestDTO.name());
         stock.setLocation(stockRequestDTO.location());
-        stock.setImageUrl(stockRequestDTO.imageUrl()); // ✅ ADICIONADO
 
         Stock updatedStock = stockRepository.save(stock);
         return convertToDTO(updatedStock);
     }
-
     // Deletar um estoque
     @Transactional
     public void deleteStock(Long stockId) {
@@ -180,36 +152,7 @@ public class StockService {
                 stock.getId(),
                 stock.getName(),
                 stock.getLocation(),
-                stock.getImageUrl(), // ✅ ADICIONADO
                 stock.getUser().getId()
         );
-    }
-
-    @Transactional
-    public void removeProductFromStock(Long stockId, Long productId) {
-        // 1. Buscar o estoque
-        Stock stock = stockRepository.findById(stockId)
-                .orElseThrow(() -> new ResourceNotFoundException("Estoque não encontrado com ID: " + stockId));
-
-        // 2. Buscar o produto
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado com ID: " + productId));
-
-        // 3. Buscar a associação StockProduct
-        Optional<StockProduct> stockProductOpt = stockProductRepository
-                .findByStockIdAndProductId(stockId, productId);
-
-        if (stockProductOpt.isEmpty()) {
-            throw new ResourceNotFoundException("Produto não encontrado neste estoque");
-        }
-
-        // 4. Remover a associação
-        StockProduct stockProduct = stockProductOpt.get();
-        stock.getProducts().remove(stockProduct);
-
-        // 5. Deletar do banco
-        stockProductRepository.delete(stockProduct);
-
-        System.out.println("✅ Produto " + productId + " removido do estoque " + stockId);
     }
 }

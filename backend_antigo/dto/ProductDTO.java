@@ -1,8 +1,6 @@
-// ProductDTO.java
 package com.stocksync.backend.dto;
 
 import com.stocksync.backend.model.enuns.CatalogProductStatus;
-import java.util.List; // 🔑 Import necessário
 
 public record ProductDTO(
         Long id,
@@ -10,8 +8,6 @@ public record ProductDTO(
         String description,
         String sku,
         String imageUrl,
-        CatalogProductStatus status,
-        // 🔑 NOVO CAMPO: Lista de estoques vinculados
-        List<StockProductLinkDTO> stocks
+        CatalogProductStatus status
 ) {
 }

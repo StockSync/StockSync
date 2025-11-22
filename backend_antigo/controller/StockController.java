@@ -4,8 +4,6 @@ import com.stocksync.backend.dto.StockDTO;
 import com.stocksync.backend.dto.StockProductDTO;
 import com.stocksync.backend.dto.StockProductResponseDTO;
 import com.stocksync.backend.dto.StockRequestDTO;
-// DTO de atualização já importado
-import com.stocksync.backend.dto.StockProductUpdateDTO;
 import com.stocksync.backend.infra.security.SecurityConfig;
 import com.stocksync.backend.model.User;
 import com.stocksync.backend.service.StockService;
@@ -16,9 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-// Exceção já importada
-import com.stocksync.backend.exception.ResourceNotFoundException;
-
 
 import java.util.List;
 
@@ -53,27 +48,6 @@ public class StockController {
         return new ResponseEntity<>(updatedStock, HttpStatus.CREATED);
     }
 
-    // NOVO ENDPOINT: ATUALIZAÇÃO DE PRODUTO NO ESTOQUE
-    // Responde ao PUT /stocks/{stockId}/products
-    @PutMapping("/{id}/products")
-    public ResponseEntity<Void> updateStockProduct(
-            @PathVariable("id") Long stockId, // O ID do estoque é o ID da rota
-            @Valid @RequestBody StockProductUpdateDTO updateDTO
-    ) {
-        try {
-            stockService.updateStockProduct(stockId, updateDTO);
-            // 204 No Content é o retorno padrão para PUT bem-sucedido que não precisa retornar um corpo
-            return ResponseEntity.noContent().build();
-        } catch (ResourceNotFoundException e) {
-            // Captura a exceção do serviço se o item não for encontrado
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            // Captura erros de validação ou outros erros inesperados
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-
     // Endpoint para listar todos os estoques do usuário logado (RF2.2)
     @GetMapping
     // 1. MODIFICAR o tipo de retorno
@@ -102,19 +76,5 @@ public class StockController {
         stockService.deleteStock(stockId);
         return ResponseEntity.noContent().build();
     }
-
-    @DeleteMapping("/{stockId}/products/{productId}")
-    public ResponseEntity<Void> removeProductFromStock(
-            @PathVariable("stockId") Long stockId,
-            @PathVariable("productId") Long productId
-    ) {
-        try {
-            stockService.removeProductFromStock(stockId, productId);
-            return ResponseEntity.noContent().build();
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
 }
+

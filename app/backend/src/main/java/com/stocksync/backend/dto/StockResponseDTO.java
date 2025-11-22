@@ -7,8 +7,8 @@ public record StockResponseDTO(
         Long quantity
 ) {
     public StockResponseDTO(StockProduct stockProduct) {
-    this(
-            stockProduct.getProduct().getName(), // Pega o NOME do produto
-            stockProduct.getQuantity()           // Pega a QUANTIDADE da relação
-    );
-}}
+        this(
+                stockProduct.getProduct().getName(), // Pega o NOME do produto
+                stockProduct.getQuantity()           // Pega a QUANTIDADE da relação
+        );
+    }}

@@ -4,9 +4,6 @@ import com.stocksync.backend.dto.ProductDTO;
 import com.stocksync.backend.model.Product;
 import org.springframework.stereotype.Component;
 
-import java.util.List; // 🔑 Import necessário
-import java.util.Collections; // 🔑 Import útil
-
 @Component
 public class ProductMapper {
 
@@ -20,10 +17,10 @@ public class ProductMapper {
                 product.getDescription(),
                 product.getSku(),
                 product.getImageUrl(),
-                product.getStatus(),
-                // 🔑 NOVO CAMPO: Adicione uma lista vazia para satisfazer o construtor do ProductDTO
-                Collections.emptyList()
-                // OU use List.of() se seu ambiente for Java 9+
+                product.getStatus() // Mapeando o status correto
         );
     }
+
+    // Não vamos mapear para entidade a partir do DTO de resposta.
+    // A lógica de criação/atualização será feita no serviço para maior controle.
 }

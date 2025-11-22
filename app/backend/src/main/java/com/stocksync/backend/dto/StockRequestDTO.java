@@ -8,6 +8,7 @@ public record StockRequestDTO(
         @NotBlank(message = "O nome do estoque não pode estar em branco")
         String name,
         String location,
+        String imageUrl,
         List<StockProductDTO> products
 ) {
 }
