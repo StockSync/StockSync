@@ -3,9 +3,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Upload } from "lucide-react";
-import { api } from "@/lib/api";
+import Image from "next/image";
 
 interface EstoqueData {
   id: string;
@@ -73,7 +73,9 @@ const UpsertEstoqueForm = ({
       formData.append("file", file);
 
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:8080/uploads/image", {
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_BASE_URL}/uploads/image`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -307,9 +309,11 @@ const UpsertEstoqueForm = ({
                 </div>
               ) : imagemPreview ? (
                 <div className="flex flex-col items-center">
-                  <img
-                    src={getImageUrl(imagemPreview)}
+                  <Image
+                    src={getImageUrl(imagemPreview) || "/placeholder.png"}
                     alt="Preview"
+                    width={80}
+                    height={80}
                     className="w-20 h-20 object-cover rounded mb-2"
                   />
                   <p className="text-xs text-gray-500">Clique para alterar</p>
@@ -337,7 +341,7 @@ const UpsertEstoqueForm = ({
               <div
                 className="bg-gray-50 rounded-md p-3 space-y-2 overflow-y-auto"
                 style={{
-                  maxHeight: "156px",
+                  maxHeight: "200px",
                   scrollbarWidth: "thin",
                   scrollbarColor: "#421986 #f3f4f6",
                 }}

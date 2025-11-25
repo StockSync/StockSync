@@ -657,9 +657,10 @@ export const api = {
     });
   },
 
-  getProdutosDoEstoque: async (stockId: number): Promise<any[]> => {
+  getProdutosDoEstoque: async (stockId: number): Promise<unknown[]> => {
     console.warn(
-      "⚠️ Endpoint de listar produtos do estoque não implementado ainda"
+      "⚠️ Endpoint de listar produtos do estoque não implementado ainda " +
+        stockId
     );
     return [];
   },

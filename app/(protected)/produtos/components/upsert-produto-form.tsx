@@ -17,6 +17,7 @@ import {
 import { useState, useEffect } from "react";
 import { Upload, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import Image from "next/image";
 
 interface ProdutoData {
   id: string;
@@ -50,8 +51,8 @@ const UpsertProdutoForm = ({
 }: UpsertProdutoFormProps) => {
   const [imagem, setImagem] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
-  const [imagemUrl, setImagemUrl] = useState<string | null>(null); // ✅ URL final da imagem
-  const [uploadingImage, setUploadingImage] = useState(false); // ✅ Loading do upload
+  const [imagemUrl, setImagemUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     nome: "",
     quantidade: "",
@@ -133,7 +134,9 @@ const UpsertProdutoForm = ({
       formData.append("file", file);
 
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:8080/uploads/image", {
+      const API_BASE_URL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+      const response = await fetch(`${API_BASE_URL}/uploads/image`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -287,7 +290,7 @@ const UpsertProdutoForm = ({
       nome: formData.nome,
       quantidade: parseInt(formData.quantidade) || 0,
       estoque: formData.estoque,
-      imagem: imagemUrl || undefined, // ✅ USA A URL DO UPLOAD
+      imagem: imagemUrl || undefined,
       observacao: formData.observacao || undefined,
     };
 
@@ -445,9 +448,11 @@ const UpsertProdutoForm = ({
                 </div>
               ) : imagemPreview ? (
                 <div className="flex flex-col items-center">
-                  <img
-                    src={getImageUrl(imagemPreview)} // ✅ USA A FUNÇÃO HELPER
+                  <Image
+                    src={getImageUrl(imagemPreview) || "/placeholder.png"}
                     alt="Preview"
+                    width={80}
+                    height={80}
                     className="w-20 h-20 object-cover rounded mb-2"
                   />
                   <p className="text-xs text-gray-500">Clique para alterar</p>

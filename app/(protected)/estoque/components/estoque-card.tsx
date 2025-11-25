@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import Image from "next/image";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -89,10 +90,12 @@ const EstoqueCard = ({ estoque, onEdit, onDelete }: EstoqueCardProps) => {
       <CardHeader>
         <div className="flex items-center gap-3">
           {estoque.image ? (
-            <img
-              src={getImageUrl(estoque.image)} // ✅ MUDANÇA AQUI
+            <Image
+              src={getImageUrl(estoque.image) || "/placeholder.png"}
               alt={estoque.name}
-              className="h-12 w-12 rounded-full object-cover"
+              width={48} // ← Isso é só pra otimização do Next.js
+              height={48} // ← Isso é só pra otimização do Next.js
+              className="h-12 w-12 rounded-full object-cover" // ← ISSO aqui controla o tamanho visual!
             />
           ) : (
             <Avatar className="h-12 w-12">
