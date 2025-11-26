@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Table,
   TableBody,
@@ -17,20 +19,12 @@ import {
 } from "@/components/ui/pagination";
 import { Plus, Minus, Edit } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
-
-interface ProdutoData {
-  id: string;
-  nome: string;
-  quantidade: number;
-  estoque: string;
-  imagem?: string;
-  observacao?: string;
-}
+import { ProdutoFrontend } from "@/lib/api"; // ✅ Importação da interface correta
 
 interface ProdutosTableProps {
-  produtos: ProdutoData[];
-  onUpdateQuantidade: (id: string, novaQuantidade: number) => void;
-  onEditProduto: (produto: ProdutoData) => void;
+  produtos: ProdutoFrontend[]; // ✅ Agora espera a lista com tipos corretos
+  onUpdateQuantidade: (id: number, novaQuantidade: number) => void; // ✅ ID number
+  onEditProduto: (produto: ProdutoFrontend) => void;
   itemsPorPagina?: number;
 }
 
@@ -42,10 +36,8 @@ const ProdutosTable = ({
 }: ProdutosTableProps) => {
   const [paginaAtual, setPaginaAtual] = useState(1);
 
-  // Calcular dados da paginação
   const totalPaginas = Math.ceil(produtos.length / itemsPorPagina);
 
-  // Corrigir página atual se estiver fora do intervalo válido
   useEffect(() => {
     if (totalPaginas > 0 && paginaAtual > totalPaginas) {
       setPaginaAtual(Math.max(1, totalPaginas));
@@ -56,11 +48,11 @@ const ProdutosTable = ({
   const indiceFim = indiceInicio + itemsPorPagina;
   const produtosPaginados = produtos.slice(indiceInicio, indiceFim);
 
-  const aumentarQuantidade = (produto: ProdutoData) => {
+  const aumentarQuantidade = (produto: ProdutoFrontend) => {
     onUpdateQuantidade(produto.id, produto.quantidade + 1);
   };
 
-  const diminuirQuantidade = (produto: ProdutoData) => {
+  const diminuirQuantidade = (produto: ProdutoFrontend) => {
     if (produto.quantidade > 0) {
       onUpdateQuantidade(produto.id, produto.quantidade - 1);
     }
@@ -82,7 +74,6 @@ const ProdutosTable = ({
     }
   };
 
-  // Gerar números das páginas para mostrar
   const gerarNumerosPaginas = useMemo(() => {
     const paginas = [];
     const maxPaginasVisiveis = 5;
@@ -136,7 +127,6 @@ const ProdutosTable = ({
 
   return (
     <div className="space-y-4">
-      {/* Tabela */}
       <div
         className="rounded-md border"
         style={{ backgroundColor: "#FFFFFF", minHeight: "500px" }}
@@ -247,7 +237,6 @@ const ProdutosTable = ({
         </Table>
       </div>
 
-      {/* Paginação */}
       {totalPaginas > 1 && (
         <div className="justify-center">
           <div className="flex items-center justify-between">
