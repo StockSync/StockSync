@@ -5,23 +5,12 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Upload } from "lucide-react";
-import Image from "next/image";
-
-interface EstoqueData {
-  id: string;
-  name: string;
-  location: string;
-  image?: string;
-  products: Array<{
-    name: string;
-    quantity: number;
-  }>;
-}
+import { EstoqueFrontend } from "@/lib/api"; // ✅ Importamos o tipo oficial (ID = number)
 
 interface UpsertEstoqueFormProps {
   onClose?: () => void;
-  onSave?: (data: EstoqueData) => void;
-  initialData?: EstoqueData | null;
+  onSave?: (data: EstoqueFrontend) => void; // ✅ Agora aceita o tipo correto
+  initialData?: EstoqueFrontend | null;     // ✅ Agora aceita o tipo correto
 }
 
 interface FormErrors {
@@ -36,7 +25,6 @@ const UpsertEstoqueForm = ({
   initialData = null,
 }: UpsertEstoqueFormProps) => {
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [imagem, setImagem] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string | null>(
     initialData?.image || null
   );
@@ -49,18 +37,14 @@ const UpsertEstoqueForm = ({
   });
   const [errors, setErrors] = useState<FormErrors>({});
 
-  // ✅ FUNÇÃO HELPER PARA URLs
   const getImageUrl = (imageUrl?: string): string | undefined => {
     if (!imageUrl) return undefined;
-
     if (imageUrl.startsWith("blob:") || imageUrl.startsWith("data:")) {
       return imageUrl;
     }
-
     if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
       return imageUrl;
     }
-
     const API_BASE_URL =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     return `${API_BASE_URL}${imageUrl}`;
@@ -75,6 +59,7 @@ const UpsertEstoqueForm = ({
       const token = localStorage.getItem("token");
       const API_BASE_URL =
         process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
       const response = await fetch(`${API_BASE_URL}/uploads/image`, {
         method: "POST",
         headers: {
@@ -123,7 +108,6 @@ const UpsertEstoqueForm = ({
         return;
       }
 
-      setImagem(file);
       setErrors((prev) => ({ ...prev, image: undefined }));
 
       const reader = new FileReader();
@@ -159,7 +143,6 @@ const UpsertEstoqueForm = ({
         return;
       }
 
-      setImagem(file);
       setErrors((prev) => ({ ...prev, image: undefined }));
 
       const reader = new FileReader();
@@ -204,8 +187,9 @@ const UpsertEstoqueForm = ({
       return;
     }
 
-    const estoqueData: EstoqueData = {
-      id: initialData?.id || Date.now().toString(),
+    const estoqueData: EstoqueFrontend = {
+      // ✅ Agora geramos um NÚMERO para o ID (se for novo)
+      id: initialData?.id || Date.now(),
       name: formData.name,
       location: formData.location,
       image: imagemUrl || undefined,
@@ -309,11 +293,10 @@ const UpsertEstoqueForm = ({
                 </div>
               ) : imagemPreview ? (
                 <div className="flex flex-col items-center">
-                  <Image
-                    src={getImageUrl(imagemPreview) || "/placeholder.png"}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getImageUrl(imagemPreview)}
                     alt="Preview"
-                    width={80}
-                    height={80}
                     className="w-20 h-20 object-cover rounded mb-2"
                   />
                   <p className="text-xs text-gray-500">Clique para alterar</p>
@@ -331,38 +314,6 @@ const UpsertEstoqueForm = ({
               <p className="text-red-500 text-xs mt-1">{errors.image}</p>
             )}
           </div>
-
-          {/* ✅ PRODUTOS - APENAS VISUALIZAÇÃO COM SCROLL (MAX 3 VISÍVEIS) */}
-          {initialData && initialData.products.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Produtos (apenas visualização)
-              </label>
-              <div
-                className="bg-gray-50 rounded-md p-3 space-y-2 overflow-y-auto"
-                style={{
-                  maxHeight: "200px",
-                  scrollbarWidth: "thin",
-                  scrollbarColor: "#421986 #f3f4f6",
-                }}
-              >
-                {initialData.products.map((produto, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-200"
-                  >
-                    <span className="text-gray-700 font-medium">
-                      {produto.name}
-                    </span>
-                    <span className="text-gray-500">{produto.quantity}x</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Para adicionar ou remover produtos, vá até a página de Produtos
-              </p>
-            </div>
-          )}
 
           {/* Botões */}
           <div className="flex gap-2 pt-4 justify-end">
