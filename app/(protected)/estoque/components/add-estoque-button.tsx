@@ -11,37 +11,26 @@ import {
 } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import UpsertEstoqueForm from "./upsert-estoque-form";
+import { EstoqueFrontend } from "@/lib/api"; 
 
-// Tipagem para os dados do estoque
-interface EstoqueData {
-  id: string;
-  name: string;
-  location: string;
-  image?: string;
-  products: Array<{
-    name: string;
-    quantity: number;
-  }>;
-}
-
-// Props que o componente recebe
 interface AddEstoqueButtonProps {
-  onAddEstoque: (estoque: EstoqueData) => void;
+  // ✅ CORREÇÃO: Usamos o tipo correto em vez de 'any'
+  onAddEstoque: (estoque: EstoqueFrontend) => void;
 }
 
 const AddEstoqueButton = ({ onAddEstoque }: AddEstoqueButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleSave = (novoEstoque: EstoqueData) => {
+  const handleSave = (novoEstoque: EstoqueFrontend) => {
     onAddEstoque(novoEstoque);
-    setIsOpen(false); // Fecha o modal após salvar
+    setIsOpen(false); 
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button className="bg-[#421986] hover:bg-[#421986]/90 text-white px-4 py-2 rounded-md">
-          <Plus />
+          <Plus className="w-4 h-4 mr-2" />
           Adicionar estoque
         </Button>
       </DialogTrigger>
